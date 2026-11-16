@@ -8,6 +8,15 @@ Glint lives in the tray and replaces the Snipping Tool. It does area, window and
 scrolling captures, text grabs and game captures, and includes an editor and a searchable library.
 Everything runs on your PC. There are no accounts, no cloud and no AI services.
 
+![Glint home in dark mode](docs/screenshots/home-dark.png)
+
+<table><tr>
+<td><img src="docs/screenshots/editor.png" alt="Glint editor with a callout, arrow and stamp"></td>
+<td><img src="docs/screenshots/home-light.png" alt="Glint home in light mode"></td>
+</tr><tr><td align="center">Editor</td><td align="center">Day mode</td></tr></table>
+
+<sub>Screenshots use dummy captures.</sub>
+
 ## Install
 
 1. Download `Glint.zip` from the [latest release](https://github.com/Jagjeet-Dhuna/Glint/releases/latest).
