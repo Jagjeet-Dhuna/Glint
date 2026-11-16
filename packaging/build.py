@@ -105,7 +105,7 @@ def build_app():
     (OUT / "README.txt").write_text(
         "Glint - screen capture\r\n\r\n"
         "Install: double-click \"Install Glint.cmd\". Glint is copied to your user folder, gets Start menu and\r\n"
-        "desktop shortcuts, and starts in the tray. No admin rights needed. You can delete this folder afterwards.\r\n\r\n"
+        "desktop shortcuts, starts in the tray, and starts with Windows from now on (turn that off in Settings). No admin rights needed. You can delete this folder afterwards.\r\n\r\n"
         "Uninstall: run \"Uninstall Glint.cmd\" from %LOCALAPPDATA%\\Programs\\Glint. Captures and settings are kept.\r\n",
         encoding="utf-8")
 

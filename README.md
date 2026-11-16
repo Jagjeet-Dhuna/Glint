@@ -23,7 +23,7 @@ Everything runs on your PC. There are no accounts, no cloud and no AI services.
 2. Extract it anywhere, then double-click **Install Glint.cmd**.
 
 Glint is copied to `%LOCALAPPDATA%\Programs\Glint`, gets Start menu and desktop shortcuts, and starts in
-the tray. No admin rights are needed, and you can delete the extracted folder afterwards.
+the tray. It starts with Windows from then on; you can turn that off in Settings. No admin rights are needed, and you can delete the extracted folder afterwards.
 
 To uninstall, run **Uninstall Glint.cmd** from `%LOCALAPPDATA%\Programs\Glint`. Your captures and settings are kept.
 

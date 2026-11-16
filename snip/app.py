@@ -162,6 +162,11 @@ class SnipApp(QObject):
             stamp_own_shortcuts()
         except Exception:
             pass
+        if self.settings.start_with_windows:
+            try:
+                winapi.ensure_start_with_windows()
+            except Exception:
+                pass
 
     def _check_printscreen(self):
         s = self.settings

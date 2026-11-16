@@ -22,7 +22,7 @@ DEFAULTS = {
     "hotkey_secondary": "Ctrl+Shift+X",
     "hotkey_instant": "Ctrl+Print Screen",
     "asked_printscreen": False,
-    "start_with_windows": False,
+    "start_with_windows": True,
     "color": "#ff3b30",
     "width": 4,
     "font_size": 28,

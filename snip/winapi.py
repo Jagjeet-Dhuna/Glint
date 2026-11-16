@@ -417,6 +417,20 @@ def set_start_with_windows(enabled):
                 pass
 
 
+def ensure_start_with_windows():
+    """Point the Run entry at this copy of Glint (new installs start with Windows by default, and a
+    moved or reinstalled copy keeps working). Only writes when the entry is missing or stale."""
+    import winreg
+    want = launch_command() + " --background"
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
+            if winreg.QueryValueEx(k, "Glint")[0] == want:
+                return
+    except OSError:
+        pass
+    set_start_with_windows(True)
+
+
 user32.MonitorFromWindow.argtypes = [W.HWND, W.DWORD]
 user32.MonitorFromWindow.restype = W.HMONITOR
 

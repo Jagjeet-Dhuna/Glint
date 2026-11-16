@@ -206,7 +206,8 @@ def install():
             pass
     subprocess.Popen([str(pyw), str(script)], cwd=str(script.parent), close_fds=True)
     QMessageBox.information(None, "Glint", "Glint is installed.\n\nIt's in your Start menu and on your desktop, "
-                                           "and it's now running in the tray. You can delete the folder you "
+                                           "it's now running in the tray, and it will start with Windows (you can turn "
+                                           "that off in Settings). You can delete the folder you "
                                            "installed from.")
     return 0
 
