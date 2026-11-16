@@ -11,49 +11,151 @@ from PySide6.QtWidgets import QLabel
 # Every colour the windows use comes from here, so Light / Dark / System can swap them live.
 # (Floating HUDs drawn over the screen - capture overlay, thumbnail, pins - stay dark on purpose.)
 PALETTES = {
+    # "ink": warm near-blacks, like a well-used workbench at night
     "dark": dict(
-        BG="#141414", SURFACE="#1b1b1b", CANVAS="#0d0d0d", LINE="#262626", HOVER="#232323", ACTIVE="#2e2e2e",
-        TEXT="#ececec", MUTED="#8b8b8b", DIM="#5f5f5f", STRONG="#ffffff",
-        SIDEBAR="#0f0f0f", SIDEBAR_LINE="#1f1f1f", NAV="#b4b4b4", NAV_HOVER="#1a1a1a", GROUP="#d6d6d6",
-        CARD="#1a1a1a", CARD_LINE="#232323", CARD_HOVER="#1f1f1f", WELL="#242424", TIP="#161616", TIP_LINE="#222222",
-        KBD="#222222", KBD_LINE="#333333", KBD_TEXT="#c8c8c8",
-        TILE_HOVER="#1a1a1a", THUMB="#1c1c1c", THUMB_EDGE="rgba(255,255,255,14)",
-        EMPTY="#171717", EMPTY_LINE="#2c2c2c",
-        FLOAT="rgba(30,30,30,242)", FLOAT_LINE="#3a3a3a",
-        CHECK_LINE="#3a3a3a", SCROLL="#3a3a3a", SCROLL_HOVER="#4a4a4a",
-        GROOVE="#333333", HANDLE="#f2f2f2", HANDLE_LINE="#f2f2f2",
-        PILL="#1c1c1c", PILL_LINE="#2a2a2a", PILL_DIV="#2e2e2e", PILL_TEXT="#f2f2f2", PILL_HOVER="#2c2c2c",
-        CHIP="#222222", CHIP_LINE="#2c2c2c", CHIP_TEXT="#bdbdbd", CHIP_HOVER="#2a2a2a",
-        SWATCH_ON="#ffffff", SWATCH_HOVER="#8a8a8a",
-        TOG_OFF="#1f1f1f", TOG_OFF_LINE="#3a3a3a", TOG_KNOB="#8a8a8a",
-        ICON_OFF="#a3a3a3", ICON_ON="#ffffff", ICON_DISABLED="#4a4a4a",
-        LIST_HOVER="#1b1b1b", LIST_SEL="#222222"),
+        BG="#171614", SURFACE="#1e1c19", CANVAS="#0f0e0d", LINE="#2c2a26", HOVER="#23211e", ACTIVE="#2e2b27",
+        TEXT="#ebe5da", MUTED="#978e81", DIM="#6c655b", STRONG="#fbf6ec",
+        SIDEBAR="#131211", SIDEBAR_LINE="#24221f", NAV="#b9b1a4", NAV_HOVER="#1c1a17", GROUP="#ebe5da",
+        CARD="#1c1a17", CARD_LINE="#2a2824", CARD_HOVER="#211f1b", WELL="#26231f", TIP="#1a1816", TIP_LINE="#2a2824",
+        KBD="transparent", KBD_LINE="#3a362f", KBD_TEXT="#cfc7ba",
+        TILE_HOVER="#1d1b18", THUMB="#211f1b", THUMB_EDGE="rgba(255,240,220,16)",
+        EMPTY="transparent", EMPTY_LINE="#34302a",
+        FLOAT="rgba(30,28,25,245)", FLOAT_LINE="#3a362f",
+        CHECK_LINE="#3d3932", SCROLL="#38342e", SCROLL_HOVER="#4b463d",
+        GROOVE="#36322c", HANDLE="#f2ece1", HANDLE_LINE="#f2ece1",
+        PILL="#1e1c19", PILL_LINE="#34302a", PILL_DIV="#34302a", PILL_TEXT="#f2ece1", PILL_HOVER="#2a2723",
+        CHIP="#211f1b", CHIP_LINE="#34302a", CHIP_TEXT="#c4bcaf", CHIP_HOVER="#2a2723",
+        SWATCH_ON="#fbf6ec", SWATCH_HOVER="#8f877a",
+        TOG_OFF="#24221e", TOG_OFF_LINE="#3d3932", TOG_KNOB="#8f877a",
+        ICON_OFF="#a79e91", ICON_ON="#fbf6ec", ICON_DISABLED="#4a463f",
+        LIST_HOVER="#1e1c19", LIST_SEL="#26231f"),
+    # "paper": warm off-whites and ink-black text
     "light": dict(
-        BG="#f6f6f7", SURFACE="#ffffff", CANVAS="#e6e6e9", LINE="#e0e0e4", HOVER="#ebebee", ACTIVE="#e0e0e5",
-        TEXT="#1c1c20", MUTED="#686870", DIM="#9c9ca4", STRONG="#0d0d10",
-        SIDEBAR="#efeff1", SIDEBAR_LINE="#e2e2e6", NAV="#4a4a52", NAV_HOVER="#e6e6ea", GROUP="#2a2a30",
-        CARD="#ffffff", CARD_LINE="#e3e3e7", CARD_HOVER="#ffffff", WELL="#f0f0f3", TIP="#ffffff", TIP_LINE="#e3e3e7",
-        KBD="#f5f5f7", KBD_LINE="#d4d4da", KBD_TEXT="#3a3a40",
-        TILE_HOVER="#ececef", THUMB="#e4e4e8", THUMB_EDGE="rgba(0,0,0,22)",
-        EMPTY="#fbfbfc", EMPTY_LINE="#d2d2d8",
-        FLOAT="rgba(255,255,255,245)", FLOAT_LINE="#d6d6dc",
-        CHECK_LINE="#bfbfc6", SCROLL="#c6c6cc", SCROLL_HOVER="#adadb5",
-        GROOVE="#d2d2d8", HANDLE="#ffffff", HANDLE_LINE="#b8b8c0",
-        PILL="#ffffff", PILL_LINE="#dcdce2", PILL_DIV="#e2e2e6", PILL_TEXT="#1c1c20", PILL_HOVER="#efeff2",
-        CHIP="#ffffff", CHIP_LINE="#dcdce2", CHIP_TEXT="#3a3a40", CHIP_HOVER="#f0f0f3",
-        SWATCH_ON="#1c1c20", SWATCH_HOVER="#9c9ca4",
-        TOG_OFF="#e4e4e8", TOG_OFF_LINE="#c9c9cf", TOG_KNOB="#76767e",
-        ICON_OFF="#55555d", ICON_ON="#0d0d10", ICON_DISABLED="#c4c4ca",
-        LIST_HOVER="#ececef", LIST_SEL="#e2e2e6"),
+        BG="#f3efe7", SURFACE="#fbf9f4", CANVAS="#e5dfd3", LINE="#dcd5c7", HOVER="#e9e4da", ACTIVE="#e0d9cc",
+        TEXT="#1f1c17", MUTED="#6d6558", DIM="#9a9184", STRONG="#110f0c",
+        SIDEBAR="#ebe6dc", SIDEBAR_LINE="#ddd6c8", NAV="#4a443b", NAV_HOVER="#e3ddd1", GROUP="#1f1c17",
+        CARD="#fbf9f4", CARD_LINE="#e0d9cb", CARD_HOVER="#fffdf8", WELL="#ece6db", TIP="#fbf9f4", TIP_LINE="#e0d9cb",
+        KBD="transparent", KBD_LINE="#cfc7b8", KBD_TEXT="#3d372f",
+        TILE_HOVER="#ebe6dc", THUMB="#e2dccf", THUMB_EDGE="rgba(40,30,10,26)",
+        EMPTY="transparent", EMPTY_LINE="#cfc7b8",
+        FLOAT="rgba(251,249,244,246)", FLOAT_LINE="#d6cfc1",
+        CHECK_LINE="#c2b9aa", SCROLL="#cbc3b5", SCROLL_HOVER="#b3aa9b",
+        GROOVE="#d3cbbd", HANDLE="#fbf9f4", HANDLE_LINE="#b3aa9b",
+        PILL="#fbf9f4", PILL_LINE="#dcd5c7", PILL_DIV="#e2dccf", PILL_TEXT="#1f1c17", PILL_HOVER="#efeae0",
+        CHIP="#fbf9f4", CHIP_LINE="#dcd5c7", CHIP_TEXT="#3d372f", CHIP_HOVER="#efeae0",
+        SWATCH_ON="#1f1c17", SWATCH_HOVER="#9a9184",
+        TOG_OFF="#e2dccf", TOG_OFF_LINE="#c9c1b2", TOG_KNOB="#776f62",
+        ICON_OFF="#5a5348", ICON_ON="#110f0c", ICON_DISABLED="#c4bcae",
+        LIST_HOVER="#e9e4da", LIST_SEL="#e0d9cc"),
 }
 MODE = "dark"           # resolved mode actually showing: "dark" | "light"
 APPEARANCE = "system"   # the user's choice: "system" | "light" | "dark"
 _ICON_GEN = 0           # bumps on every theme change so live icons redraw
 
 globals().update(PALETTES["dark"])
-ACCENT = "#4c8dff"     # set from settings by apply_theme()
-ACCENTS = [("Blue", "#4c8dff"), ("Violet", "#8b6cff"), ("Teal", "#20b2a0"), ("Green", "#3fb950"),
-           ("Amber", "#f29d1f"), ("Rose", "#ff5c8a"), ("Mono", "#e6e6e6")]
+ACCENT = "#e8a33d"     # set from settings by apply_theme()
+ACCENTS = [("Amber", "#e8a33d"), ("Blue", "#4c8dff"), ("Violet", "#8b6cff"), ("Teal", "#20b2a0"),
+           ("Green", "#3fb950"), ("Rose", "#ff5c8a"), ("Ink", "#e6e1d8")]
+UI_FONT = "IBM Plex Sans"
+MONO_FONT = "IBM Plex Mono"
+_fonts_loaded = False
+
+
+def load_fonts():
+    """Glint's own typefaces (IBM Plex, SIL Open Font License), shipped in assets/fonts."""
+    global _fonts_loaded, UI_FONT, MONO_FONT
+    if _fonts_loaded:
+        return
+    _fonts_loaded = True
+    from pathlib import Path
+    from PySide6.QtGui import QFontDatabase
+    d = Path(__file__).resolve().parent.parent / "assets" / "fonts"
+    fams = set()
+    for p in sorted(d.glob("*.ttf")):
+        i = QFontDatabase.addApplicationFont(str(p))
+        if i >= 0:
+            fams.update(QFontDatabase.applicationFontFamilies(i))
+    if "IBM Plex Sans" not in fams:
+        UI_FONT = "Segoe UI"            # fonts missing: fall back quietly
+    if "IBM Plex Mono" not in fams:
+        MONO_FONT = "Cascadia Mono"
+
+
+FOLDER_COLORS = ["#e0805e", "#73b79a", "#a99ae0", "#d9b25c", "#7aaee0", "#d97aa5", "#9cb86a", "#c49a6c"]
+LOOSE_COLOR = "#6a6358"
+MODE_COLORS = {"full": "#d9b25c", "scroll": "#73b79a", "text": "#7aaee0", "timer": "#a99ae0", "game": "#b9b1a4"}
+
+
+def folder_color(name):
+    """A folder's colour: stable for its name (same colour every run, on every PC)."""
+    if not name:
+        return LOOSE_COLOR
+    h = 0
+    for ch in name.lower():
+        h = (h * 31 + ord(ch)) & 0xFFFFFFFF
+    return FOLDER_COLORS[h % len(FOLDER_COLORS)]
+
+
+def dot_pixmap(color, size=16, dot=8, radius=2.0, dpr=2.0):
+    pm = QPixmap(int(size * dpr), int(size * dpr))
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.scale(dpr, dpr)
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(color))
+    o = (size - dot) / 2
+    p.drawRoundedRect(QRectF(o, o, dot, dot), radius, radius)
+    p.end()
+    pm.setDevicePixelRatio(dpr)
+    return pm
+
+
+def tile_icon_pixmap(name, color, size=30, filled=False, dpr=2.0):
+    """A capture-mode swatch: the icon in its colour on a soft tint of it (or dark on the solid colour)."""
+    pm = QPixmap(int(size * dpr), int(size * dpr))
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.scale(dpr, dpr)
+    p.setPen(Qt.NoPen)
+    bg = QColor(color)
+    if not filled:
+        bg.setAlpha(40)
+    p.setBrush(bg)
+    p.drawRoundedRect(QRectF(0, 0, size, size), 6, 6)
+    k = 16 / 24.0
+    p.translate((size - 16) / 2, (size - 16) / 2)
+    p.scale(k, k)
+    _draw(name, p, QColor(on_accent(color)) if filled else QColor(color))
+    p.end()
+    pm.setDevicePixelRatio(dpr)
+    return pm
+
+
+def sparkle_path(cx, cy, R, r=None):
+    """Glint's mark: a four-point star with softly curved sides."""
+    r = r if r is not None else R * 0.22
+    pts = [(0, -R), (r, -r), (R, 0), (r, r), (0, R), (-r, r), (-R, 0), (-r, -r)]
+    path = QPainterPath(QPointF(cx + pts[0][0], cy + pts[0][1]))
+    for i in range(1, 9):
+        a, prev = pts[i % 8], pts[(i - 1) % 8]
+        path.quadTo(QPointF(cx + (a[0] + prev[0]) * 0.18, cy + (a[1] + prev[1]) * 0.18), QPointF(cx + a[0], cy + a[1]))
+    return path
+
+
+def sparkle_pixmap(size, color=None, dpr=2.0):
+    pm = QPixmap(int(size * dpr), int(size * dpr))
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.scale(dpr, dpr)
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(color or ACCENT))
+    p.drawPath(sparkle_path(size / 2, size / 2, size / 2 - 0.5))
+    p.end()
+    pm.setDevicePixelRatio(dpr)
+    return pm
 
 
 def rgba(c, a):
@@ -321,6 +423,8 @@ def _draw(name, p, c):
         p.drawLine(QPointF(5, 7), QPointF(19, 7))
         p.drawLine(QPointF(5, 12), QPointF(15, 12))
         p.drawLine(QPointF(5, 17), QPointF(11, 17))
+    elif name == "chevronleft":
+        p.drawPolyline(L((14.5, 6), (8.5, 12), (14.5, 18)))
     elif name == "chevron":
         p.drawPolyline(L((9.5, 6), (15.5, 12), (9.5, 18)))
 
@@ -506,29 +610,30 @@ def app_icon():
 def stylesheet(accent=None):
     A = accent or ACCENT
     A_TEXT = on_accent(A)
-    A_HOVER = QColor(A).lighter(112).name()
-    A_PRESS = QColor(A).darker(115).name()
+    A_HOVER = QColor(A).lighter(110).name()
+    A_PRESS = QColor(A).darker(112).name()
     A_SOFT = rgba(A, 0.16)
-    A_FAINT = rgba(A, 0.10)
-    A_LINE = rgba(A, 0.55)
-    A_BRIGHT = QColor(A).lighter(125).name() if MODE == "dark" else QColor(A).darker(118).name()
+    A_FAINT = rgba(A, 0.09)
+    A_LINE = rgba(A, 0.6)
+    A_BRIGHT = QColor(A).lighter(118).name() if MODE == "dark" else QColor(A).darker(130).name()
+    F, M = UI_FONT, MONO_FONT
     return f"""
-* {{ font-family: "Segoe UI Variable Text", "Segoe UI"; font-size: 9.5pt; color: {TEXT}; }}
+* {{ font-family: "{F}", "Segoe UI"; font-size: 9.5pt; color: {TEXT}; }}
 QMainWindow, QDialog {{ background: {BG}; }}
 QWidget#page, QWidget#bar {{ background: {BG}; }}
 QWidget#bar {{ border-bottom: 1px solid {LINE}; }}
-QToolTip {{ background: {SURFACE}; color: {TEXT}; border: 1px solid {LINE}; padding: 4px 7px; border-radius: 6px; }}
+QToolTip {{ background: {SURFACE}; color: {TEXT}; border: 1px solid {LINE}; padding: 5px 8px; border-radius: 4px; }}
 
-QToolButton {{ background: transparent; border: none; border-radius: 7px; padding: 6px; }}
+QToolButton {{ background: transparent; border: none; border-radius: 5px; padding: 6px; }}
 QToolButton:hover {{ background: {HOVER}; }}
 QToolButton:pressed {{ background: {ACTIVE}; }}
-QToolButton:checked {{ background: {rgba(A, 0.24)}; }}
-QToolButton:checked:hover {{ background: {rgba(A, 0.32)}; }}
+QToolButton:checked {{ background: {rgba(A, 0.22)}; }}
+QToolButton:checked:hover {{ background: {rgba(A, 0.30)}; }}
 QToolButton::menu-indicator {{ image: none; width: 0; }}
 QToolButton#chip {{ padding: 5px 10px; color: {MUTED}; }}
 QToolButton#chip:checked {{ color: {A_BRIGHT}; }}
 
-QPushButton {{ background: transparent; border: 1px solid {LINE}; border-radius: 7px; padding: 6px 14px; }}
+QPushButton {{ background: transparent; border: 1px solid {LINE}; border-radius: 5px; padding: 6px 14px; }}
 QPushButton:hover {{ background: {HOVER}; }}
 QPushButton:pressed {{ background: {ACTIVE}; }}
 QPushButton#primary {{ background: {A}; border: 1px solid {A}; color: {A_TEXT}; font-weight: 600; }}
@@ -538,16 +643,17 @@ QPushButton#ghost {{ border: none; color: {MUTED}; padding: 4px 8px; }}
 QPushButton#ghost:hover {{ color: {TEXT}; background: {HOVER}; }}
 QPushButton::menu-indicator {{ image: none; width: 0; }}
 
-QLineEdit, QSpinBox, QComboBox, QPlainTextEdit {{ background: {SURFACE}; border: 1px solid {LINE}; border-radius: 7px;
+QLineEdit, QSpinBox, QComboBox, QPlainTextEdit {{ background: {SURFACE}; border: 1px solid {LINE}; border-radius: 5px;
     padding: 5px 9px; selection-background-color: {rgba(A, 0.45)}; }}
 QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus {{ border-color: {A_LINE}; }}
-QLineEdit#search {{ background: {SURFACE}; border: 1px solid transparent; padding: 6px 10px; }}
-QLineEdit#search:focus {{ border-color: {A_LINE}; }}
+QLineEdit#search {{ background: transparent; border: none; border-bottom: 1px solid {LINE}; border-radius: 0;
+    padding: 6px 4px; }}
+QLineEdit#search:focus {{ border-bottom: 1px solid {A}; }}
 QComboBox::drop-down {{ border: none; width: 22px; }}
 QComboBox QAbstractItemView {{ background: {SURFACE}; border: 1px solid {LINE}; outline: none; padding: 4px;
     selection-background-color: {ACTIVE}; }}
 QCheckBox {{ spacing: 8px; }}
-QCheckBox::indicator {{ width: 16px; height: 16px; border-radius: 4px; border: 1px solid {CHECK_LINE}; background: {SURFACE}; }}
+QCheckBox::indicator {{ width: 15px; height: 15px; border-radius: 3px; border: 1px solid {CHECK_LINE}; background: {SURFACE}; }}
 QCheckBox::indicator:checked {{ background: {A}; border-color: {A}; }}
 
 QSlider::groove:horizontal {{ height: 2px; background: {GROOVE}; border-radius: 1px; }}
@@ -557,75 +663,91 @@ QSlider::handle:horizontal {{ background: {HANDLE}; border: 1px solid {HANDLE_LI
 QScrollArea {{ border: none; background: {CANVAS}; }}
 QScrollBar:vertical {{ background: transparent; width: 8px; margin: 2px; }}
 QScrollBar:horizontal {{ background: transparent; height: 8px; margin: 2px; }}
-QScrollBar::handle {{ background: {SCROLL}; border-radius: 3px; min-height: 30px; min-width: 30px; }}
+QScrollBar::handle {{ background: {SCROLL}; border-radius: 2px; min-height: 30px; min-width: 30px; }}
 QScrollBar::handle:hover {{ background: {SCROLL_HOVER}; }}
 QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::sub-page {{ width: 0; height: 0; background: none; }}
 
-QMenu {{ background: {SURFACE}; border: 1px solid {LINE}; padding: 5px; border-radius: 8px; }}
-QMenu::item {{ padding: 6px 28px 6px 12px; border-radius: 5px; }}
+QMenu {{ background: {SURFACE}; border: 1px solid {LINE}; padding: 4px; border-radius: 6px; }}
+QMenu::item {{ padding: 6px 28px 6px 12px; border-radius: 3px; }}
 QMenu::item:selected {{ background: {ACTIVE}; }}
 QMenu::item:disabled {{ color: {DIM}; }}
 QMenu::separator {{ height: 1px; background: {LINE}; margin: 4px 6px; }}
 
 QListWidget {{ background: {BG}; border: none; outline: none; }}
-QListWidget::item {{ border-radius: 10px; padding: 8px; color: {MUTED}; }}
+QListWidget::item {{ border-radius: 4px; padding: 8px; color: {MUTED}; }}
 QListWidget::item:hover {{ background: {LIST_HOVER}; }}
 QListWidget::item:selected {{ background: {LIST_SEL}; color: {TEXT}; }}
 
-QLabel#h1 {{ font-size: 12pt; font-weight: 600; }}
+QLabel#h1 {{ font-size: 13pt; font-weight: 600; }}
 QLabel#muted {{ color: {MUTED}; }}
-QFrame#codebar {{ background: {FLOAT}; border: 1px solid {FLOAT_LINE}; border-radius: 11px; }}
+QFrame#codebar {{ background: {FLOAT}; border: 1px solid {FLOAT_LINE}; border-radius: 7px; }}
 QFrame#codebar QLabel {{ background: transparent; }}
-QLabel#codekind {{ color: {MUTED}; font-size: 8.5pt; }}
-QLabel#toast {{ background: {FLOAT}; border: 1px solid {FLOAT_LINE}; border-radius: 9px; padding: 7px 14px; }}
-QLabel#zoom {{ color: {MUTED}; background: transparent; padding: 4px 8px; }}
+QLabel#codekind {{ color: {MUTED}; font-family: "{M}"; font-size: 8pt; }}
+QLabel#toast {{ background: {FLOAT}; border: 1px solid {FLOAT_LINE}; border-radius: 6px; padding: 7px 14px; }}
+QLabel#zoom {{ color: {MUTED}; background: transparent; padding: 4px 8px; font-family: "{M}"; font-size: 8pt; }}
 QWidget#sidebar {{ background: {SIDEBAR}; border-right: 1px solid {SIDEBAR_LINE}; }}
 QWidget#sidebar_mid {{ background: {SIDEBAR}; }}
 QScrollArea#sidebarscroll {{ background: {SIDEBAR}; border: none; }}
 QWidget#holder {{ background: {CANVAS}; }}
 QWidget#content {{ background: {BG}; }}
-QLabel#brand {{ font-size: 11pt; font-weight: 600; }}
-QLabel#section {{ color: {DIM}; font-size: 8pt; font-weight: 600; letter-spacing: 0.6px; padding: 0 10px; }}
-QLabel#pagetitle {{ font-family: "Segoe UI Variable Display", "Segoe UI"; font-size: 17pt; font-weight: 600; }}
-QLabel#group {{ font-size: 10pt; font-weight: 600; color: {GROUP}; }}
-QLabel#groupcount {{ color: {DIM}; }}
-QPushButton#nav {{ text-align: left; border: none; border-radius: 7px; padding: 7px 10px; color: {NAV}; }}
-QPushButton#nav:hover {{ background: {NAV_HOVER}; color: {TEXT}; }}
-QPushButton#nav:checked {{ background: {A_FAINT}; color: {STRONG}; }}
-QLabel#navcount {{ color: {DIM}; font-size: 8.5pt; background: transparent; }}
-QFrame#capcard {{ background: {CARD}; border: 1px solid {CARD_LINE}; border-radius: 12px; }}
+QLabel#brand {{ font-size: 12pt; font-weight: 600; letter-spacing: -0.2px; }}
+QLabel#section {{ color: {DIM}; font-size: 8.5pt; font-weight: 500; padding: 0 12px; }}
+QLabel#pagetitle {{ font-size: 19pt; font-weight: 600; letter-spacing: -0.4px; }}
+QLabel#group {{ font-size: 10.5pt; font-weight: 600; color: {GROUP}; }}
+QLabel#groupcount {{ color: {DIM}; font-family: "{M}"; font-size: 8.5pt; }}
+QFrame#rule {{ background: {LINE}; border: none; }}
+QPushButton#nav {{ text-align: left; border: none; border-left: 2px solid transparent; border-radius: 0;
+    padding: 6px 10px 6px 12px; color: {NAV}; }}
+QPushButton#nav:hover {{ color: {STRONG}; background: {NAV_HOVER}; }}
+QPushButton#nav:checked {{ color: {STRONG}; background: transparent; border-left: 2px solid {A}; font-weight: 500; }}
+QLabel#navcount {{ color: {DIM}; font-family: "{M}"; font-size: 8pt; background: transparent; }}
+QToolButton#capbtn {{ border: 1px solid {LINE}; border-radius: 5px; padding: 6px 12px 6px 9px; color: {TEXT}; }}
+QToolButton#capbtn:hover {{ border-color: {A_LINE}; background: {A_FAINT}; }}
+QToolButton#capbtn[primary="true"] {{ background: {A}; border-color: {A}; color: {A_TEXT}; font-weight: 600; }}
+QToolButton#capbtn[primary="true"]:hover {{ background: {A_HOVER}; border-color: {A_HOVER}; }}
+QFrame#modetile {{ border: 1px solid {LINE}; border-radius: 6px; background: transparent; }}
+QFrame#modetile:hover {{ border-color: {A_LINE}; background: {A_FAINT}; }}
+QFrame#modetile[primary="true"] {{ border-color: {A}; background: {rgba(A, 0.10)}; }}
+QFrame#modetile QLabel {{ background: transparent; border: none; }}
+QLabel#modename {{ font-weight: 600; }}
+QLabel#modenote {{ color: {MUTED}; font-family: "{M}"; font-size: 8pt; }}
+QLabel#legendname {{ color: {MUTED}; font-size: 8.5pt; background: transparent; }}
+QLabel#legendsize {{ color: {DIM}; font-family: "{M}"; font-size: 8pt; background: transparent; }}
+QPushButton#collapse {{ border: 1px solid {LINE}; border-radius: 5px; color: {MUTED}; padding: 6px 8px; }}
+QPushButton#collapse:hover {{ color: {TEXT}; background: {HOVER}; }}
+QPushButton#nav[compact="true"] {{ padding: 7px 0; text-align: center; }}
+QLabel#caphint {{ color: {DIM}; font-family: "{M}"; font-size: 8pt; background: transparent; }}
+QFrame#capcard {{ background: {CARD}; border: 1px solid {CARD_LINE}; border-radius: 6px; }}
 QFrame#capcard:hover {{ background: {CARD_HOVER}; border-color: {rgba(A, 0.40)}; }}
 QLabel#captitle {{ font-weight: 600; background: transparent; }}
 QLabel#capsub {{ color: {MUTED}; font-size: 8.5pt; background: transparent; }}
-QLabel#iconwell {{ background: {WELL}; border-radius: 9px; }}
-QLabel#kbd {{ background: {KBD}; border: 1px solid {KBD_LINE}; border-bottom: 2px solid {KBD_LINE}; border-radius: 5px;
-    padding: 1px 6px; color: {KBD_TEXT}; font-size: 8pt; font-family: "Segoe UI"; }}
-QFrame#tile {{ background: transparent; border: 1px solid transparent; border-radius: 12px; }}
-QFrame#tile:hover {{ background: {TILE_HOVER}; border-color: {CARD_LINE}; }}
-QFrame#tile[selected="true"] {{ background: {A_FAINT}; border-color: {A_LINE}; }}
-QFrame#tile[kbd="true"] {{ border-color: {A}; }}
-QWidget#band {{ background: {rgba(A, 0.15)}; border: 1px solid {rgba(A, 0.7)}; border-radius: 3px; }}
+QLabel#iconwell {{ background: {WELL}; border-radius: 6px; }}
+QLabel#kbd {{ background: {KBD}; border: 1px solid {KBD_LINE}; border-radius: 3px;
+    padding: 0px 5px; color: {KBD_TEXT}; font-size: 8pt; font-family: "{M}"; }}
+QFrame#tile {{ background: transparent; border: 1px solid transparent; border-radius: 6px; }}
+QFrame#tile[kbd="true"] {{ border: 1px dashed {A_LINE}; }}
+QWidget#band {{ background: {rgba(A, 0.12)}; border: 1px solid {rgba(A, 0.75)}; border-radius: 2px; }}
 QLabel#tiletitle {{ background: transparent; }}
-QLabel#tilemeta {{ color: {MUTED}; font-size: 8.5pt; background: transparent; }}
-QFrame#card {{ background: {CARD}; border: 1px solid {CARD_LINE}; border-radius: 12px; }}
+QLabel#tilemeta {{ color: {MUTED}; font-family: "{M}"; font-size: 8pt; background: transparent; }}
+QFrame#card {{ background: transparent; border: none; border-top: 1px solid {LINE}; border-radius: 0; }}
 QFrame#hair {{ background: {CARD_LINE}; }}
 QLabel#rowtitle {{ background: transparent; }}
 QLabel#rowdesc {{ color: {MUTED}; font-size: 8.5pt; background: transparent; }}
-QFrame#tip {{ background: {TIP}; border: 1px solid {TIP_LINE}; border-radius: 10px; }}
-QFrame#empty {{ border: 1.5px dashed {EMPTY_LINE}; border-radius: 16px; background: {EMPTY}; }}
+QFrame#tip {{ background: {TIP}; border: 1px solid {TIP_LINE}; border-radius: 6px; }}
+QFrame#empty {{ border: none; background: transparent; }}
 QScrollArea#lib {{ background: {BG}; }}
-QFrame#pill {{ background: {PILL}; border: 1px solid {PILL_LINE}; border-radius: 15px; }}
+QFrame#pill {{ background: {PILL}; border: 1px solid {PILL_LINE}; border-radius: 6px; }}
 QLabel#pilltext {{ color: {MUTED}; background: transparent; }}
 QFrame#pilldiv {{ background: {PILL_DIV}; border: none; }}
-QPushButton#pillbtn {{ background: transparent; color: {PILL_TEXT}; border: none; border-radius: 11px;
+QPushButton#pillbtn {{ background: transparent; color: {PILL_TEXT}; border: none; border-radius: 4px;
     padding: 0 10px; font-weight: 600; }}
 QPushButton#pillbtn:hover {{ background: {PILL_HOVER}; }}
 QPushButton#pillbtn:pressed {{ background: {ACTIVE}; }}
 QPushButton#ghost[active="true"] {{ color: {A_BRIGHT}; background: {A_SOFT}; }}
-QToolButton#appchip {{ background: {CHIP}; border: 1px solid {CHIP_LINE}; border-radius: 13px; padding: 4px 10px; color: {CHIP_TEXT}; }}
+QToolButton#appchip {{ background: {CHIP}; border: 1px solid {CHIP_LINE}; border-radius: 4px; padding: 4px 10px; color: {CHIP_TEXT}; }}
 QToolButton#appchip:hover {{ background: {CHIP_HOVER}; }}
 QToolButton#appchip:checked {{ background: {A}; border-color: {A}; color: {A_TEXT}; }}
-QDateEdit {{ background: {SURFACE}; border: 1px solid {LINE}; border-radius: 7px; padding: 5px 9px; }}
+QDateEdit {{ background: {SURFACE}; border: 1px solid {LINE}; border-radius: 5px; padding: 5px 9px; }}
 QDateEdit:disabled {{ color: {DIM}; }}
 QDateEdit::drop-down {{ border: none; width: 20px; }}
 QCalendarWidget QWidget {{ alternate-background-color: {SURFACE}; }}
@@ -636,7 +758,7 @@ QToolButton#swatch:checked {{ border-color: {SWATCH_ON}; }}
 QToolButton#swatch:hover {{ border-color: {SWATCH_HOVER}; }}
 QToolButton#seg {{ border: 1px solid {LINE}; border-radius: 0; padding: 5px 12px; color: {MUTED}; }}
 QToolButton#seg:checked {{ background: {A_SOFT}; color: {STRONG}; border-color: {A_LINE}; }}
-QFrame#popup {{ background: {SURFACE}; border: 1px solid {LINE}; border-radius: 10px; }}
+QFrame#popup {{ background: {SURFACE}; border: 1px solid {LINE}; border-radius: 6px; }}
 QFrame#popup QLabel {{ color: {MUTED}; }}
 QFrame#vline {{ background: {LINE}; }}
 """
@@ -645,6 +767,7 @@ QFrame#vline {{ background: {LINE}; }}
 def apply_theme(app, accent=None, appearance=None):
     """Colours for every window. appearance = "system" | "light" | "dark" (None keeps the current choice)."""
     global ACCENT, APPEARANCE, MODE, _ICON_GEN
+    load_fonts()
     if accent:
         ACCENT = accent
     if appearance:
@@ -693,7 +816,7 @@ def follow_system(app, on_change=None):
         pass
 
 
-STYLESHEET = stylesheet()   # backwards name
+STYLESHEET = None   # (old name; the stylesheet is built per theme by stylesheet())
 
 
 def vline(height=20):

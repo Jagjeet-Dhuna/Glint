@@ -38,9 +38,10 @@ DEFAULTS = {
     "arrow_head": "tapered",     # tapered | classic | double
     "outline": False,
     "callout": False,
-    "accent": "#4c8dff",
+    "accent": "#e8a33d",
     "appearance": "system",
     "library_sort": "newest",
+    "sidebar_collapsed": False,
     "last_region": None,         # [x, y, w, h] physical, for "Repeat last area"
     "hotkey_repeat": "None",
     "hide_desktop_icons": False,

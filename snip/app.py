@@ -103,7 +103,8 @@ class SnipApp(QObject):
     def theme_changed(self):
         """Light/dark switched: rebuild what has colours baked into pixmaps (library thumbnails)."""
         try:
-            self.home.library.rebuild()
+            self.home.library.cards_box.refresh_colors()
+            self.home.refresh()
         except Exception:
             pass
 

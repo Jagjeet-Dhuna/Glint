@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, QPoint, QRect, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
-from . import winapi
+from . import theme, winapi
 from .capture import grabber
 
 user32 = ctypes.windll.user32
@@ -526,7 +526,7 @@ class FreezeView(QWidget):
             else:
                 p.drawPixmap(QRectF(self.rect()), self.pm, QRectF(self.pm.rect()))
         from PySide6.QtGui import QFont, QFontMetrics
-        f = QFont("Segoe UI")
+        f = QFont(theme.UI_FONT)
         f.setPixelSize(13)
         p.setFont(f)
         if self.busy:

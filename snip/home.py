@@ -4,7 +4,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import QDate, QEvent, QMimeData, QPoint, QRect, QRectF, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QDate, QEvent, QMimeData, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (QColor, QDesktopServices, QDrag, QFontMetrics, QIcon, QImage, QKeySequence, QImageReader, QPainter, QPainterPath,
                            QPen, QPixmap)
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QButtonGroup, QCheckBox, QComboBox, QDateEdit, QDialog,
@@ -35,6 +35,8 @@ _icon_cache = {}
 
 def app_icon_for(name, exe=""):
     """Icon cached from the app's window when it was captured (falls back to old exe paths)."""
+    if name == "Glint":
+        return theme.app_icon()
     p = library.icon_path(name) if name else None
     if p is not None and p.exists():
         from PySide6.QtGui import QIcon
@@ -160,6 +162,11 @@ class ElideLabel(QLabel):
         self.setMinimumWidth(20)
         self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
 
+    def set_full(self, text):
+        self._full = text
+        self.setToolTip(text)
+        super().setText(self.fontMetrics().elidedText(text, Qt.ElideRight, max(20, self.width())))
+
     def resizeEvent(self, e):
         super().setText(self.fontMetrics().elidedText(self._full, Qt.ElideRight, self.width()))
         super().resizeEvent(e)
@@ -204,6 +211,118 @@ class CardGrid(QWidget):
     def resizeEvent(self, e):
         self._place(self._cols_for(e.size().width()))
         super().resizeEvent(e)
+
+
+class ModeTile(QFrame):
+    """One capture mode: coloured icon swatch, name, and a short mono note."""
+    clicked = Signal()
+
+    def __init__(self, key, icon, name, note, primary=False, menu=None):
+        super().__init__()
+        self.key, self.icon_name, self.primary, self.menu = key, icon, primary, menu
+        self.setObjectName("modetile")
+        self.setProperty("primary", primary)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedHeight(50)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(9, 0, 9, 0)
+        lay.setSpacing(10)
+        self.swatch = QLabel()
+        self.swatch.setFixedSize(30, 30)
+        lay.addWidget(self.swatch)
+        col = QVBoxLayout()
+        col.setSpacing(0)
+        col.setContentsMargins(0, 0, 0, 0)
+        self.name = ElideLabel(name)
+        self.name.setObjectName("modename")
+        self.note = ElideLabel(note)
+        self.note.setObjectName("modenote")
+        col.addStretch(1)
+        col.addWidget(self.name)
+        col.addWidget(self.note)
+        col.addStretch(1)
+        lay.addLayout(col, 1)
+        self.refresh_colors()
+
+    def refresh_colors(self):
+        color = theme.ACCENT if self.primary else theme.MODE_COLORS.get(self.key, theme.MUTED)
+        self.swatch.setPixmap(theme.tile_icon_pixmap(self.icon_name, color, 30, filled=self.primary))
+
+    def set_compact(self, on):
+        self.name.setVisible(not on)
+        self.note.setVisible(not on)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
+            if self.menu:
+                self.menu.exec(self.mapToGlobal(QPoint(0, self.height() + 4)))
+            else:
+                self.clicked.emit()
+
+
+class CaptureStrip(QWidget):
+    """The six capture modes as one row of coloured tiles (shortcuts in the notes and tooltips)."""
+
+    def __init__(self, page):
+        super().__init__()
+        self.page = page
+        app = page.app
+        grid = QGridLayout(self)
+        grid.setContentsMargins(0, 0, 0, 26)
+        grid.setSpacing(8)
+        delay_menu = QMenu(self)
+        for sec in (3, 5, 10):
+            delay_menu.addAction(f"In {sec} seconds", lambda sec=sec: app.start_capture(delay=sec, hide_home=True))
+        spec = [
+            ("region", "region", "Capture", "", lambda: app.start_capture(hide_home=True), None, True),
+            ("full", "monitor", "Screen", "monitor", lambda: app.start_capture("fullscreen", hide_home=True), None, False),
+            ("scroll", "scroll", "Scrolling", "long pages", lambda: app.start_capture("scroll", hide_home=True), None, False),
+            ("text", "ocr", "Text", "copy words", lambda: app.start_capture("text", hide_home=True), None, False),
+            ("timer", "timer", "Timer", "3 · 5 · 10 s", None, delay_menu, False),
+            ("game", "gamepad", "Instant", "games", lambda: QTimer.singleShot(250, app.instant_capture), None, False),
+        ]
+        self.buttons = {}
+        for i, (key, icon, name, note, fn, menu, primary) in enumerate(spec):
+            t = ModeTile(key, icon, name, note, primary, menu)
+            if fn:
+                t.clicked.connect(fn)
+            grid.addWidget(t, 0, i)
+            grid.setColumnStretch(i, 1)
+            self.buttons[key] = t
+        self._compact = None
+        self.update_keys()
+
+    def minimumSizeHint(self):
+        return QSize(len(self.buttons) * 50, 76)
+
+    def resizeEvent(self, e):
+        compact = e.size().width() < 680
+        if compact != self._compact:
+            self._compact = compact
+            for t in self.buttons.values():
+                t.set_compact(compact)
+        super().resizeEvent(e)
+
+    def refresh_colors(self):
+        for t in self.buttons.values():
+            t.refresh_colors()
+
+    def update_keys(self):
+        s = self.page.app.settings
+        k = s.hotkey_primary if s.hotkey_primary and s.hotkey_primary != "None" else ""
+        short = {"Print Screen": "PrtScn", "Ctrl+Print Screen": "Ctrl+PrtScn", "Shift+Print Screen": "Shift+PrtScn"}
+        self.buttons["region"].note.set_full(short.get(k, k) or "drag an area")
+        tips = {
+            "region": f"Drag an area, or click a window    {k}",
+            "full": "The whole monitor under your mouse",
+            "scroll": "Long pages and chats, stitched into one image",
+            "text": "Copy the words in an area - nothing is saved",
+            "timer": "Wait a few seconds, then capture (for menus and hovers)",
+            "game": f"Active window or game, no overlay    {s.hotkey_instant}",
+        }
+        for key, t in tips.items():
+            self.buttons[key].setToolTip(t)
 
 
 class CaptureCard(QFrame):
@@ -272,10 +391,19 @@ class Tile(QFrame):
         self.img = QLabel()
         self.img.setFixedSize(TW, TH)
         lay.addWidget(self.img)
-        lay.addSpacing(8)
+        lay.addSpacing(7)
         fm = QFontMetrics(self.font())
-        t = QLabel(fm.elidedText(rec["title"], Qt.ElideRight, TW - 4))
+        t = QLabel(fm.elidedText(rec["title"], Qt.ElideRight, TW - 18))
         t.setObjectName("tiletitle")
+        dot = QLabel()
+        dot.setPixmap(theme.dot_pixmap(theme.folder_color(rec.get("folder", "")), 10, 7))
+        dot.setFixedSize(10, 10)
+        dot.setToolTip(rec.get("folder") or "Not in a folder")
+        trow = QHBoxLayout()
+        trow.setContentsMargins(0, 0, 0, 0)
+        trow.setSpacing(6)
+        trow.addWidget(dot, 0, Qt.AlignVCenter)
+        trow.addWidget(t, 1)
         meta = rec["meta"]
         q = page.search.text().strip().lower()
         txt = rec.get("text") or ""
@@ -290,14 +418,17 @@ class Tile(QFrame):
             meta = fm.elidedText("  ".join("#" + t for t in rec["tags"]) + "  ·  " + meta, Qt.ElideRight, TW - 4)
         m = QLabel(meta)
         m.setObjectName("tilemeta")
-        lay.addWidget(t)
+        lay.addLayout(trow)
         lay.addSpacing(2)
+        m.setContentsMargins(16, 0, 0, 0)
         lay.addWidget(m)
         self.setToolTip(rec["tooltip"])
         self.set_pixmap(page.thumbs.get(rec["path"]))
 
     def set_pixmap(self, pm):
         self.pm = pm
+        sel = bool(self.property("selected"))
+        hover = getattr(self, "_hover", False)
         canvas = QPixmap(int(TW * self.devicePixelRatioF()), int(TH * self.devicePixelRatioF()))
         canvas.setDevicePixelRatio(self.devicePixelRatioF())
         canvas.fill(Qt.transparent)
@@ -305,25 +436,41 @@ class Tile(QFrame):
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         path = QPainterPath()
-        path.addRoundedRect(QRectF(0, 0, TW, TH), 8, 8)
+        path.addRoundedRect(QRectF(0, 0, TW, TH), 4, 4)
         p.fillPath(path, QColor(theme.THUMB))
         p.setClipPath(path)
         if pm is not None:
             dpr = pm.devicePixelRatio()
             w, h = pm.width() / dpr, pm.height() / dpr
             p.drawPixmap(QRectF((TW - w) / 2, (TH - h) / 2, w, h), pm, QRectF(pm.rect()))
+        if hover and not sel:
+            p.fillRect(QRectF(0, 0, TW, TH), QColor(255, 255, 255, 18) if theme.is_dark() else QColor(255, 255, 255, 50))
         p.setClipping(False)
-        edge = QColor(255, 255, 255, 14) if theme.is_dark() else QColor(0, 0, 0, 22)
-        p.setPen(QPen(edge, 1))
-        p.setBrush(Qt.NoBrush)
-        p.drawRoundedRect(QRectF(0.5, 0.5, TW - 1, TH - 1), 8, 8)
+        if sel:
+            p.setPen(QPen(QColor(theme.ACCENT), 2))
+            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(QRectF(1, 1, TW - 2, TH - 2), 4, 4)
+        else:
+            edge = QColor(255, 240, 220, 16) if theme.is_dark() else QColor(40, 30, 10, 26)
+            p.setPen(QPen(edge, 1))
+            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(QRectF(0.5, 0.5, TW - 1, TH - 1), 4, 4)
         p.end()
         self.img.setPixmap(canvas)
 
     def set_selected(self, on):
         self.setProperty("selected", on)
-        self.style().unpolish(self)
-        self.style().polish(self)
+        self.set_pixmap(self.pm)
+
+    def enterEvent(self, e):
+        self._hover = True
+        self.set_pixmap(self.pm)
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        self._hover = False
+        self.set_pixmap(self.pm)
+        super().leaveEvent(e)
 
     def _set_kbd(self, on):
         if self.property("kbd") != on:
@@ -542,7 +689,7 @@ class LibraryPage(QWidget):
         head = QHBoxLayout()
         tcol = QVBoxLayout()
         tcol.setSpacing(2)
-        self.title = QLabel("Home")
+        self.title = QLabel("Captures")
         self.title.setObjectName("pagetitle")
         tcol.addWidget(self.title)
         self.subtitle_row = QHBoxLayout()
@@ -564,7 +711,9 @@ class LibraryPage(QWidget):
         self.search.setObjectName("search")
         self.search.setPlaceholderText("Search, including text inside images")
         self.search.addAction(theme.icon("search", 16), QLineEdit.LeadingPosition)
-        self.search.setFixedWidth(300)
+        self.search.setMinimumWidth(120)
+        self.search.setMaximumWidth(300)
+        self.search.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.search.textChanged.connect(lambda: self._search_timer.start(120))
         self.sort_btn = QToolButton()
         self.sort_btn.setObjectName("chip")
@@ -602,24 +751,8 @@ class LibraryPage(QWidget):
         self.body.addLayout(head)
         self.body.addSpacing(22)
 
-        # capture modes
-        s = self.app.settings
-        delay_menu = QMenu(self)
-        for sec in (3, 5, 10):
-            delay_menu.addAction(f"{sec} seconds", lambda sec=sec: self.app.start_capture(delay=sec, hide_home=True))
-        self.card_region = CaptureCard("region", "Region", "Drag, or click a window", s.hotkey_primary)
-        self.card_region.clicked.connect(lambda: self.app.start_capture(hide_home=True))
-        self.card_full = CaptureCard("monitor", "Full screen", "Monitor under cursor")
-        self.card_full.clicked.connect(lambda: self.app.start_capture("fullscreen", hide_home=True))
-        self.card_all = CaptureCard("scroll", "Scrolling", "Whole pages and long chats")
-        self.card_all.clicked.connect(lambda: self.app.start_capture("scroll", hide_home=True))
-        self.card_text = CaptureCard("ocr", "Grab text", "Copy words off the screen")
-        self.card_text.clicked.connect(lambda: self.app.start_capture("text", hide_home=True))
-        self.card_timer = CaptureCard("timer", "Timer", "3, 5 or 10 seconds", menu=delay_menu)
-        self.card_game = CaptureCard("gamepad", "Instant", "Games stay fullscreen", s.hotkey_instant)
-        self.card_game.clicked.connect(lambda: QTimer.singleShot(250, self.app.instant_capture))
-        self.cards_box = CardGrid([self.card_region, self.card_full, self.card_all, self.card_text,
-                                   self.card_timer, self.card_game])
+        # capture modes: one slim strip
+        self.cards_box = CaptureStrip(self)
         self.body.addWidget(self.cards_box)
 
         self.sections = QVBoxLayout()
@@ -642,7 +775,7 @@ class LibraryPage(QWidget):
             title = (info.get("title") or "").strip()
             sz = QImageReader(str(p)).size()
             dims = f"{sz.width()}×{sz.height()}" if sz.isValid() else ""
-            meta = "  ·  ".join(x for x in (app_name, ts.strftime("%I:%M %p").lstrip("0"), dims) if x)
+            meta = " · ".join(x for x in (app_name, dims) if x)
             root = Path(self.app.settings.save_folder)
             folder = p.parent.name if p.parent != root else ""
             recs.append(dict(path=str(p), ts=ts, app=app_name, exe=info.get("exe", ""), folder=folder,
@@ -710,7 +843,7 @@ class LibraryPage(QWidget):
         """(records in display order, function giving each record's section heading)."""
         k = self.sort
         if k == "oldest":
-            return sorted(recs, key=lambda r: r["ts"]), lambda r: self._group(r["ts"])
+            return sorted(recs, key=lambda r: r["ts"]), lambda r: ""
         if k == "app":
             out = sorted(recs, key=lambda r: ((r["app"] or "~").lower(), -r["ts"].timestamp()))
             return out, lambda r: r["app"] or "Other"
@@ -727,7 +860,7 @@ class LibraryPage(QWidget):
                 c = (r["name"][:1] or "#").upper()
                 return c if c.isalpha() else "#"
             return sorted(recs, key=lambda r: r["name"]), letter
-        return sorted(recs, key=lambda r: r["ts"], reverse=True), lambda r: self._group(r["ts"])
+        return sorted(recs, key=lambda r: r["ts"], reverse=True), lambda r: ""
 
     @staticmethod
     def _group(ts):
@@ -784,10 +917,18 @@ class LibraryPage(QWidget):
             gl.setObjectName("group")
             gc = QLabel(str(len(groups[g])))
             gc.setObjectName("groupcount")
+            rule = QFrame()
+            rule.setObjectName("rule")
+            rule.setFixedHeight(1)
             h.addWidget(gl)
             h.addWidget(gc)
-            h.addStretch(1)
-            v.addLayout(h)
+            h.addSpacing(6)
+            h.addWidget(rule, 1, Qt.AlignVCenter)
+            if g:                       # flat list (newest / oldest): no heading at all
+                v.addLayout(h)
+            else:
+                for w_ in (gl, gc, rule):
+                    w_.hide()
             grid = QWidget()
             flow = FlowLayout(grid, spacing=6)
             grid.setLayout(flow)
@@ -807,34 +948,22 @@ class LibraryPage(QWidget):
     def _empty_state(self):
         box = QFrame()
         box.setObjectName("empty")
-        box.setMinimumHeight(280)
+        box.setMinimumHeight(260)
         v = QVBoxLayout(box)
         v.setAlignment(Qt.AlignCenter)
-        v.setSpacing(10)
-        v.addWidget(icon_label("region", 26, well=56), 0, Qt.AlignCenter)
-        v.addSpacing(6)
-        t = QLabel("No captures yet")
-        t.setObjectName("captitle")
+        v.setSpacing(12)
+        mark = QLabel()
+        lp = theme.app_pixmap(96)
+        lp.setDevicePixelRatio(2.0)
+        mark.setPixmap(lp)
+        mark.setAlignment(Qt.AlignCenter)
+        v.addWidget(mark)
+        k = self.app.settings.hotkey_primary
+        t = QLabel(f"Nothing here yet. Press {k} and drag over anything." if k and k != "None"
+                   else "Nothing here yet. Click Capture above and drag over anything.")
+        t.setObjectName("muted")
         t.setAlignment(Qt.AlignCenter)
         v.addWidget(t)
-        row = QHBoxLayout()
-        row.setSpacing(5)
-        row.addStretch(1)
-        lab = QLabel("Press")
-        lab.setObjectName("capsub")
-        row.addWidget(lab)
-        for k in hotkey_parts(self.app.settings.hotkey_primary):
-            row.addWidget(kbd(k))
-        lab2 = QLabel("to capture a region, or")
-        lab2.setObjectName("capsub")
-        row.addWidget(lab2)
-        for k in hotkey_parts(self.app.settings.hotkey_instant):
-            row.addWidget(kbd(k))
-        lab3 = QLabel("in a game")
-        lab3.setObjectName("capsub")
-        row.addWidget(lab3)
-        row.addStretch(1)
-        v.addLayout(row)
         return box
 
     def _load_some(self):
@@ -997,9 +1126,7 @@ class LibraryPage(QWidget):
         self.home.refresh()
 
     def update_hotkeys(self):
-        s = self.app.settings
-        self.card_region.set_keys(s.hotkey_primary)
-        self.card_game.set_keys(s.hotkey_instant)
+        self.cards_box.update_keys()
 
 
 class SettingsPage(QWidget):
@@ -1209,6 +1336,8 @@ class SettingsPage(QWidget):
     def _set_accent(self, col):
         self.app.settings.set(accent=col)
         theme.apply_theme(QApplication.instance(), col)
+        if hasattr(self.app, "theme_changed"):
+            self.app.theme_changed()
 
     def _apply_hotkeys(self):
         # one key can only do one thing: if the key just picked is already used by another row, that row
@@ -1248,6 +1377,19 @@ class NavButton(QPushButton):
         self.count.setText(str(n) if n else "")
         self.count.adjustSize()
         self._place()
+
+    def set_dot(self, color):
+        self.setIcon(QIcon(theme.dot_pixmap(color, 16, 8)))
+
+    def set_compact(self, on):
+        if not hasattr(self, "_full"):
+            self._full = self.text()
+        self.setText("" if on else self._full)
+        self.setToolTip(self._full if on else "")
+        self.count.setVisible(not on)
+        self.setProperty("compact", on)
+        self.style().unpolish(self)
+        self.style().polish(self)
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -1490,6 +1632,117 @@ class FolderDialog(QDialog):
         self.home.move_paths(to_move, name, open_folder=True)
 
 
+class StorageView(QWidget):
+    """Space used, split by folder. Glint's library has no limit (it's your disk), so the bar is always
+    full: it shows what's taking the room, not how close to "full" you are."""
+
+    def __init__(self):
+        super().__init__()
+        self.parts = []          # [(name, colour, bytes)]
+        self.total = 0
+        self.compact = False
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(8, 10, 8, 4)
+        lay.setSpacing(8)
+        top = QHBoxLayout()
+        self.head = QLabel("Space used")
+        self.head.setObjectName("rowtitle")
+        self.amount = QLabel()
+        self.amount.setObjectName("navcount")
+        top.addWidget(self.head)
+        top.addStretch(1)
+        top.addWidget(self.amount)
+        lay.addLayout(top)
+        self.bar = QWidget()
+        self.bar.setFixedHeight(6)
+        self.bar.paintEvent = self._paint_bar
+        lay.addWidget(self.bar)
+        self.legend_w = QWidget()
+        self.legend = FlowLayout(self.legend_w, spacing=4)
+        lay.addWidget(self.legend_w)
+        self.vbar = QWidget()
+        self.vbar.setFixedSize(6, 70)
+        self.vbar.paintEvent = self._paint_vbar
+        self.vbar.hide()
+        lay.addWidget(self.vbar, 0, Qt.AlignHCenter)
+
+    @staticmethod
+    def _mb(n):
+        mb = n / 1e6
+        return f"{mb:.0f} MB" if mb >= 10 else f"{mb:.1f} MB" if mb >= 1 else f"{max(1, round(n / 1e3))} KB"
+
+    def set_data(self, by_folder):
+        items = sorted(by_folder.items(), key=lambda kv: -kv[1])
+        if len(items) > 5:          # keep the key short: the four biggest, then everything else
+            rest = sum(v for _, v in items[4:])
+            items = items[:4] + [("\x00other", rest)]
+        self.parts = [(("Loose" if k == "" else "Other" if k == "\x00other" else k),
+                       (theme.LOOSE_COLOR if k == "" else theme.DIM if k == "\x00other" else theme.folder_color(k)), v)
+                      for k, v in items if v > 0]
+        self.total = sum(v for _, _, v in self.parts)
+        self.amount.setText(self._mb(self.total))
+        while self.legend.count():
+            w = self.legend.takeAt(0).widget()
+            if w:
+                w.deleteLater()
+        for name, color, v in self.parts:
+            row = QWidget()
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(0, 0, 8, 0)
+            rl.setSpacing(5)
+            d = QLabel()
+            d.setPixmap(theme.dot_pixmap(color, 10, 7))
+            n = QLabel(name)
+            n.setObjectName("legendname")
+            sz = QLabel(self._mb(v).replace(" MB", "").replace(" KB", "k"))
+            sz.setObjectName("legendsize")
+            for w in (d, n, sz):
+                rl.addWidget(w)
+            self.legend.addWidget(row)
+        self.setToolTip("\n".join(f"{n}: {self._mb(v)}" for n, _, v in self.parts))
+        self.bar.update()
+        self.vbar.update()
+
+    def set_compact(self, on):
+        self.compact = on
+        for w in (self.head, self.amount, self.bar, self.legend_w):
+            w.setVisible(not on)
+        self.vbar.setVisible(on)
+
+    def _segments(self, length):
+        out, pos, gap = [], 0.0, 2.0
+        usable = length - gap * max(0, len(self.parts) - 1)
+        for i, (_, color, v) in enumerate(self.parts):
+            ln = max(2.0, usable * v / max(1, self.total))
+            out.append((pos, ln, color))
+            pos += ln + gap
+        return out
+
+    def _paint_bar(self, _e):
+        p = QPainter(self.bar)
+        p.setRenderHint(QPainter.Antialiasing)
+        clip = QPainterPath()
+        clip.addRoundedRect(QRectF(self.bar.rect()), 3, 3)
+        p.setClipPath(clip)
+        if not self.parts:
+            p.fillRect(self.bar.rect(), QColor(theme.LINE))
+        for x, w, color in self._segments(self.bar.width()):
+            p.fillRect(QRectF(x, 0, w, self.bar.height()), QColor(color))
+        p.end()
+
+    def _paint_vbar(self, _e):
+        p = QPainter(self.vbar)
+        p.setRenderHint(QPainter.Antialiasing)
+        clip = QPainterPath()
+        clip.addRoundedRect(QRectF(self.vbar.rect()), 3, 3)
+        p.setClipPath(clip)
+        if not self.parts:
+            p.fillRect(self.vbar.rect(), QColor(theme.LINE))
+        for y, h, color in self._segments(self.vbar.height()):
+            p.fillRect(QRectF(0, y, self.vbar.width(), h), QColor(color))
+        p.end()
+
+
 class HomeWindow(QMainWindow):
     def __init__(self, app):
         super().__init__()
@@ -1507,15 +1760,20 @@ class HomeWindow(QMainWindow):
         side = QWidget()
         side.setObjectName("sidebar")
         side.setAttribute(Qt.WA_StyledBackground)
-        side.setFixedWidth(224)
+        side.setFixedWidth(228)
+        self.side = side
         sv = QVBoxLayout(side)
         sv.setContentsMargins(12, 18, 12, 14)
         sv.setSpacing(2)
+        self.side_layout = sv
         brand = QHBoxLayout()
-        brand.setContentsMargins(8, 0, 0, 0)
+        brand.setContentsMargins(6, 0, 0, 0)
         logo = QLabel()
-        logo.setPixmap(theme.app_pixmap(48).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        lp = theme.app_pixmap(52)
+        lp.setDevicePixelRatio(2.0)
+        logo.setPixmap(lp)
         bt = QLabel("Glint")
+        self.brand_text = bt
         bt.setObjectName("brand")
         brand.addWidget(logo)
         brand.addSpacing(4)
@@ -1526,10 +1784,12 @@ class HomeWindow(QMainWindow):
 
         self.nav_group = QButtonGroup(self)
         self.nav_group.setExclusive(True)
-        self.nav_home = self._nav(sv, "grid", "Home", ("all", None))
-        self.nav_today = self._nav(sv, "today", "Today", ("today", None))
-        self.nav_week = self._nav(sv, "week", "Last 7 days", ("week", None))
-        sv.addSpacing(12)
+        self.nav_home = self._nav(sv, "grid", "Captures", ("all", None))
+        self.nav_dupes = NavButton("copy", "Duplicates")
+        self.nav_dupes.setCheckable(False)
+        self.nav_dupes.clicked.connect(lambda: DuplicatesDialog(self).exec())
+        sv.addWidget(self.nav_dupes)
+        sv.addSpacing(10)
 
         # scrollable middle: folders + apps
         mid_scroll = QScrollArea()
@@ -1543,8 +1803,10 @@ class HomeWindow(QMainWindow):
         mv.setContentsMargins(0, 0, 0, 0)
         mv.setSpacing(2)
         fh = QHBoxLayout()
-        fl = QLabel("FOLDERS")
+        fl = QLabel("Folders")
         fl.setObjectName("section")
+        self.folders_label = fl
+        self.folder_add = None
         fh.addWidget(fl)
         fh.addStretch(1)
         add = QToolButton()
@@ -1554,6 +1816,7 @@ class HomeWindow(QMainWindow):
         add.setStyleSheet("QToolButton { padding: 3px; }")
         add.clicked.connect(lambda: self.edit_folder(None))
         fh.addWidget(add)
+        self.folder_add = add
         mv.addLayout(fh)
         mv.addSpacing(2)
         self.folders_box = QVBoxLayout()
@@ -1567,16 +1830,7 @@ class HomeWindow(QMainWindow):
         mv.addWidget(self.folder_hint)
         self.folder_navs = []
         mv.addSpacing(14)
-        self.apps_label = QLabel("APPS")
-        self.apps_label.setObjectName("section")
-        mv.addWidget(self.apps_label)
-        mv.addSpacing(4)
-        self.apps_box = QVBoxLayout()
-        self.apps_box.setSpacing(2)
-        mv.addLayout(self.apps_box)
-        self.app_navs = []
-        mv.addSpacing(14)
-        self.tags_label = QLabel("TAGS")
+        self.tags_label = QLabel("Tags")
         self.tags_label.setObjectName("section")
         mv.addWidget(self.tags_label)
         mv.addSpacing(4)
@@ -1584,61 +1838,33 @@ class HomeWindow(QMainWindow):
         self.tags_box.setSpacing(2)
         mv.addLayout(self.tags_box)
         self.tag_navs = []
+        mv.addSpacing(14)
+        self.apps_label = QLabel("Apps")
+        self.apps_label.setObjectName("section")
+        mv.addWidget(self.apps_label)
+        mv.addSpacing(4)
+        self.apps_box = QVBoxLayout()
+        self.apps_box.setSpacing(2)
+        mv.addLayout(self.apps_box)
+        self.app_navs = []
         mv.addStretch(1)
         mid_scroll.setWidget(mid)
         sv.addWidget(mid_scroll, 1)
-        sv.addSpacing(8)
-
-        tip = QFrame()
-        tip.setObjectName("tip")
-        tv = QVBoxLayout(tip)
-        tv.setContentsMargins(12, 10, 12, 11)
-        tv.setSpacing(6)
-        tt = QLabel("Gaming?")
-        tt.setObjectName("captitle")
-        tip_x = QToolButton()
-        tip_x.setIcon(theme.icon("close", 12))
-        tip_x.setIconSize(QSize(12, 12))
-        tip_x.setFixedSize(20, 20)
-        tip_x.setStyleSheet("QToolButton { padding: 0; border-radius: 5px; }")
-        tip_x.setToolTip("Hide this tip")
-        tip_x.setCursor(Qt.PointingHandCursor)
-        td = QLabel("Instant capture grabs games without leaving fullscreen.")
-        td.setObjectName("capsub")
-        td.setWordWrap(True)
-        self.tip_keys = QHBoxLayout()
-        self.tip_keys.setSpacing(3)
-        for k in hotkey_parts(app.settings.hotkey_instant):
-            self.tip_keys.addWidget(kbd(k))
-        self.tip_keys.addStretch(1)
-        th = QHBoxLayout()
-        th.setContentsMargins(0, 0, 0, 0)
-        th.addWidget(tt)
-        th.addStretch(1)
-        th.addWidget(tip_x, 0, Qt.AlignTop)
-        tv.addLayout(th)
-        tv.addWidget(td)
-        tv.addLayout(self.tip_keys)
-        tip_box = QWidget()            # tip + the gap under it, so hiding it leaves no hole
-        tbl = QVBoxLayout(tip_box)
-        tbl.setContentsMargins(0, 0, 0, 10)
-        tbl.addWidget(tip)
-        sv.addWidget(tip_box)
-        tip_box.setVisible(not app.settings.gaming_tip_hidden)
-
-        def _hide_tip():
-            tip_box.hide()
-            app.settings.set(gaming_tip_hidden=True)
-        tip_x.clicked.connect(_hide_tip)
-
-        folder = NavButton("folder", "Open folder")
-        folder.setCheckable(False)
-        folder.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(app.settings.save_folder)))
-        sv.addWidget(folder)
+        sv.addSpacing(6)
         self.nav_settings = NavButton("settings", "Settings")
         self.nav_group.addButton(self.nav_settings)
         self.nav_settings.clicked.connect(lambda: self.stack.setCurrentWidget(self.settings_page))
         sv.addWidget(self.nav_settings)
+        sv.addSpacing(6)
+        self.storage = StorageView()
+        sv.addWidget(self.storage)
+        sv.addSpacing(8)
+        self.collapse_btn = QPushButton("Collapse")
+        self.collapse_btn.setObjectName("collapse")
+        self.collapse_btn.setCursor(Qt.PointingHandCursor)
+        self.collapse_btn.clicked.connect(lambda: self.set_sidebar_collapsed(not self._collapsed))
+        sv.addWidget(self.collapse_btn)
+        self._collapsed = False
         h.addWidget(side)
 
         self.stack = QStackedWidget()
@@ -1652,6 +1878,27 @@ class HomeWindow(QMainWindow):
         self.nav_home.setChecked(True)
         winapi.style_window(self.winId())
         self.refresh()
+        self.set_sidebar_collapsed(bool(app.settings.sidebar_collapsed), save=False)
+
+    def set_sidebar_collapsed(self, on, save=True):
+        """Fold the sidebar down to an icon strip (and back). Remembered between runs."""
+        self._collapsed = on
+        self.side.setFixedWidth(64 if on else 228)
+        self.side_layout.setContentsMargins(10 if on else 12, 18, 10 if on else 12, 14)
+        self.brand_text.setVisible(not on)
+        for lab in (self.folders_label, self.tags_label, self.apps_label):
+            lab.setVisible(not on and lab.property("wanted") is not False)
+        if self.folder_add is not None:
+            self.folder_add.setVisible(not on)
+        for b in self.side.findChildren(NavButton):
+            b.set_compact(on)
+        self.folder_hint.setText("" if on else "New folder")
+        self.storage.set_compact(on)
+        self.collapse_btn.setIcon(theme.icon("chevron" if on else "chevronleft", 14))
+        self.collapse_btn.setText("" if on else "Collapse")
+        self.collapse_btn.setToolTip("Expand the sidebar" if on else "")
+        if save:
+            self.app.settings.set(sidebar_collapsed=on)
 
     def _nav(self, layout, icon_name, text, flt):
         b = NavButton(icon_name, text)
@@ -1714,7 +1961,7 @@ class HomeWindow(QMainWindow):
         self.app.settings.set(folder_rules=rules)
         if self.library.filter == ("folder", name):
             self.nav_home.setChecked(True)
-            self._set_filter(("all", None), "Home")
+            self._set_filter(("all", None), "Captures")
         self.refresh()
 
     def refresh(self):
@@ -1723,8 +1970,12 @@ class HomeWindow(QMainWindow):
         now = datetime.now()
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         self.nav_home.set_count(len(recs))
-        self.nav_today.set_count(sum(r["ts"] >= start for r in recs))
-        self.nav_week.set_count(sum(r["ts"] >= start - timedelta(days=6) for r in recs))
+        _ = (now, start)
+        # space used, split by folder (no limit - it's local - so the bar shows what's taking the room)
+        by = Counter()
+        for r in recs:
+            by[r["folder"] or ""] += r.get("size", 0)
+        self.storage.set_data(by)
         # rebuild app list
         for b in self.app_navs:
             self.nav_group.removeButton(b)
@@ -1746,7 +1997,8 @@ class HomeWindow(QMainWindow):
                 b.setChecked(True)
             self.apps_box.addWidget(b)
             self.app_navs.append(b)
-        self.apps_label.setVisible(bool(counts))
+        self.apps_label.setProperty("wanted", bool(counts))
+        self.apps_label.setVisible(bool(counts) and not getattr(self, "_collapsed", False))
         # folders
         for b in self.folder_navs:
             self.nav_group.removeButton(b)
@@ -1758,6 +2010,7 @@ class HomeWindow(QMainWindow):
         rules = self.app.settings.folder_rules or {}
         for d in library.folder_dirs(self.app.settings.save_folder):
             b = FolderNav(self, d.name, library.has_conditions(rules.get(d.name)))
+            b.set_dot(theme.folder_color(d.name))
             b.set_count(fcounts.get(d.name, 0))
             self.nav_group.addButton(b)
             b.clicked.connect(lambda _=False, nm=d.name: self._set_filter(("folder", nm), nm))
@@ -1778,7 +2031,8 @@ class HomeWindow(QMainWindow):
         if tcounts:
             entries.append((("untagged", None), "Untagged", sum(1 for r in recs if not r.get("tags"))))
         for flt, label, n in entries:
-            b = NavButton("tag" if flt[0] == "tag" else "image", label[1:] if flt[0] == "tag" else label)
+            b = NavButton("tag" if flt[0] == "tag" else "image", label if flt[0] == "tag" else label)
+            b.set_dot(theme.DIM if flt[0] == "tag" else theme.LINE)
             b.set_count(n)
             self.nav_group.addButton(b)
             b.clicked.connect(lambda _=False, f=flt, lb=label: self._set_filter(f, lb))
@@ -1786,7 +2040,11 @@ class HomeWindow(QMainWindow):
                 b.setChecked(True)
             self.tags_box.addWidget(b)
             self.tag_navs.append(b)
-        self.tags_label.setVisible(bool(tcounts))
+        self.tags_label.setProperty("wanted", bool(tcounts))
+        self.tags_label.setVisible(bool(tcounts) and not getattr(self, "_collapsed", False))
+        if getattr(self, "_collapsed", False):        # new buttons made while folded: fold them too
+            for b in self.app_navs + self.folder_navs + self.tag_navs:
+                b.set_compact(True)
 
     def keyPressEvent(self, e):
         lib = self.library

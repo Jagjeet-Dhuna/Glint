@@ -31,7 +31,7 @@ tags = {os.path.basename(p): storage.read_meta(p).get("tags") for p in paths}
 print(" ", tags)
 ok("tags saved", tags["cap0.png"] == ["bug", "work"] and tags["cap1.png"] == ["bug", "receipts", "work"] and tags["cap2.png"] == ["receipts"])
 navs = [b.text() for b in w.tag_navs]; print("  sidebar:", navs)
-ok("sidebar lists tags + Untagged", navs[:3] == ["bug", "receipts", "work"] and "Untagged" in navs[-1])
+ok("sidebar lists tags + Untagged", navs[:3] == ["#bug", "#receipts", "#work"] and "Untagged" in navs[-1])
 w._set_filter(("tag", "work"), "#work"); ok("filter #work -> 2", len(lib.tiles) == 2)
 w._set_filter(("untagged", None), "Untagged"); ok("Untagged -> 1", len(lib.tiles) == 1)
 w._set_filter(("all", None), "Home"); lib.search.setText("#receipts"); lib.rebuild(); ok("search #receipts -> 2", len(lib.tiles) == 2)

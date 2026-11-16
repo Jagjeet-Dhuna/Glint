@@ -346,7 +346,7 @@ class Canvas(QWidget):
     def _paint_tag(self, p, s, at, text):
         p.save()
         p.resetTransform()
-        f = QFont("Segoe UI")
+        f = QFont(theme.UI_FONT)
         f.setPixelSize(12)
         f.setWeight(QFont.Medium)
         p.setFont(f)

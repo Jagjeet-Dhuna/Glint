@@ -4,7 +4,7 @@ from PySide6.QtGui import (QColor, QCursor, QFont, QFontMetrics, QGuiApplication
                            QPainterPath, QPen)
 from PySide6.QtWidgets import QApplication, QWidget
 
-from . import winapi
+from . import theme, winapi
 
 DIM = QColor(0, 0, 0, 125)
 ACCENT = QColor(255, 255, 255, 235)
@@ -209,7 +209,7 @@ class Overlay(QWidget):
             self._draw_hint(p)
 
     def _draw_label(self, p, lr, text):
-        f = QFont("Segoe UI")
+        f = QFont(theme.UI_FONT)
         f.setPixelSize(12)
         f.setWeight(QFont.Medium)
         p.setFont(f)
@@ -314,7 +314,7 @@ class Overlay(QWidget):
             text = ("Drag to capture     Click a window     F  Full screen     "
                     + ("R  Last area     " if self.s.last_region else "")
                     + "S  Scrolling     T  Text     M  Measure     C  Colour     Esc  Cancel")
-        f = QFont("Segoe UI")
+        f = QFont(theme.UI_FONT)
         f.setPixelSize(13)
         p.setFont(f)
         fm = QFontMetrics(f)

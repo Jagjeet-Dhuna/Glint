@@ -18,6 +18,7 @@ page = home.LibraryPage(h); lay.addWidget(page); win.show(); page.load()
 for w in (960, 700, 1500, 480):
     win.resize(w, 760); QTest.qWait(150)
     body, vp = page.scroll.widget(), page.scroll.viewport()
-    print(w, "viewport", vp.width(), "body", body.width(), "cols", page.cards_box._cols,
-          "OK" if body.width() <= vp.width() else "OVERFLOW")
+    compact = not page.cards_box.buttons["full"].name.isVisible()
+    print(("PASS" if body.width() <= vp.width() else "FAIL") + f" {w}px wide: page fits ({body.width()} <= {vp.width()})"
+          + ("  [compact capture row]" if compact else ""))
     win.grab().save(OUT + f"/cards_{w}.png")
