@@ -1320,9 +1320,12 @@ class SettingsPage(QWidget):
         if startup != s.start_with_windows:
             try:
                 winapi.set_start_with_windows(startup)
-            except Exception:
+            except Exception as e:
                 startup = s.start_with_windows
                 self.startup.setChecked(startup)
+                if str(e) == "blocked":
+                    QMessageBox.information(self, "Glint", "Windows has Glint turned off as a startup app.\n\n"
+                                            "Turn it back on in Windows Settings > Apps > Startup.")
         s.set(after_capture=self.after.currentData(), auto_copy=self.copy.isChecked(),
               auto_save=self.save.isChecked(), start_with_windows=startup, auto_redact=self.redact.isChecked(),
               window_style=self.win_style.currentData(), hide_desktop_icons=self.hide_icons.isChecked())

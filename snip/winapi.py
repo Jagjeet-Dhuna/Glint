@@ -405,7 +405,49 @@ def launch_command():
     return f'"{exe}" "{script}"'
 
 
+# ---------------------------------------------------------------- Microsoft Store (MSIX) package
+STARTUP_TASK = "GlintStartup"   # must match the StartupTask TaskId in packaging/msix.py
+
+
+def is_packaged():
+    """True when running from the Microsoft Store (MSIX) package. Store apps can't use the Run key or
+    write real HKCU settings (writes are virtualised), so a few features take a different path."""
+    if not hasattr(is_packaged, "_v"):
+        try:
+            n = W.UINT(0)
+            is_packaged._v = kernel32.GetCurrentPackageFullName(ctypes.byref(n), None) != 15700  # NO_PACKAGE
+        except Exception:
+            is_packaged._v = False
+    return is_packaged._v
+
+
+def _startup_task(enable=None):
+    """Read (or change) the package's startup task. Returns (enabled, user_blocked)."""
+    import asyncio
+    from winrt.windows.applicationmodel import StartupTask, StartupTaskState as S
+
+    async def go():
+        t = await StartupTask.get_async(STARTUP_TASK)
+        if enable is True and t.state == S.DISABLED:
+            await t.request_enable_async()
+        elif enable is False and t.state == S.ENABLED:
+            t.disable()
+        return t.state
+    st = asyncio.run(go())
+    return st in (S.ENABLED, S.ENABLED_BY_POLICY), st in (S.DISABLED_BY_USER, S.DISABLED_BY_POLICY)
+
+
+def start_with_windows_state():
+    """(enabled, blocked) for the Store package; None when not packaged (the setting is the truth)."""
+    return _startup_task() if is_packaged() else None
+
+
 def set_start_with_windows(enabled):
+    if is_packaged():
+        on, blocked = _startup_task(bool(enabled))
+        if on != bool(enabled):
+            raise PermissionError("blocked" if blocked else "failed")
+        return
     import winreg
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
         if enabled:
@@ -420,6 +462,8 @@ def set_start_with_windows(enabled):
 def ensure_start_with_windows():
     """Point the Run entry at this copy of Glint (new installs start with Windows by default, and a
     moved or reinstalled copy keeps working). Only writes when the entry is missing or stale."""
+    if is_packaged():
+        return  # the package's StartupTask handles it
     import winreg
     want = launch_command() + " --background"
     try:

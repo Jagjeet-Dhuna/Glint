@@ -79,13 +79,20 @@ Settings.
 Requires Windows 10/11 and Python 3.12.
 
 ```
-pip install PySide6 numpy dxcam comtypes zxing-cpp winrt-runtime "winrt-Windows.Foundation" "winrt-Windows.Foundation.Collections" "winrt-Windows.Globalization" "winrt-Windows.Graphics.Imaging" "winrt-Windows.Media.Ocr" "winrt-Windows.Storage.Streams"
+pip install PySide6 numpy dxcam comtypes zxing-cpp winrt-runtime "winrt-Windows.Foundation" "winrt-Windows.Foundation.Collections" "winrt-Windows.ApplicationModel" "winrt-Windows.Globalization" "winrt-Windows.Graphics.Imaging" "winrt-Windows.Media.Ocr" "winrt-Windows.Storage.Streams"
 pythonw Glint.pyw
 ```
 
 Run the tests with `python tests/run_all.py`. They run offline and never touch real windows.
 
 To build the zip, run `pip install pyinstaller`, then `python packaging/build.py`. The output is `dist/Glint.zip`.
+
+For the Microsoft Store package, run `python packaging/msix.py` after that. The output is `dist/Glint.msix`.
+It needs `makeappx.exe` and `makepri.exe` from the Windows SDK (or set `SDK_BIN` to their folder).
+
+## Privacy
+
+Glint collects nothing. See the [privacy policy](PRIVACY.md).
 
 ## Credits
 

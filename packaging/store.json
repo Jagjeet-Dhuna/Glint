@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy these three values from Partner Center > your app > Product identity once the name is reserved.",
+  "name": "Glint.Placeholder",
+  "publisher": "CN=Glint-Placeholder",
+  "publisher_display_name": "Glint",
+  "version": "1.0.0.0"
+}

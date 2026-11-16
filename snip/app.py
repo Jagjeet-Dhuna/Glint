@@ -157,6 +157,15 @@ class SnipApp(QObject):
         sock.readyRead.connect(read)
 
     def _stamp_shortcuts(self):
+        if winapi.is_packaged():
+            # the Store owns shortcuts and startup; just mirror Windows' startup switch into Settings
+            try:
+                on, _ = winapi.start_with_windows_state()
+                if on != self.settings.start_with_windows:
+                    self.settings.set(start_with_windows=on)
+            except Exception:
+                pass
+            return
         try:
             from .install import stamp_own_shortcuts
             stamp_own_shortcuts()
@@ -176,6 +185,16 @@ class SnipApp(QObject):
         if s.asked_printscreen:
             return
         s.set(asked_printscreen=True)
+        if winapi.is_packaged():
+            # Store apps can't change this Windows setting themselves, so send the user to it
+            r = QMessageBox.question(None, "Glint", "Windows is using the Print Screen key to open Snipping Tool.\n\n"
+                                     "To use Print Screen with Glint, turn off “Use the Print screen key to open "
+                                     "screen capture” in Windows Settings. Open it now?")
+            if r == QMessageBox.Yes:
+                from PySide6.QtCore import QUrl
+                from PySide6.QtGui import QDesktopServices
+                QDesktopServices.openUrl(QUrl("ms-settings:easeofaccess-keyboard"))
+            return
         r = QMessageBox.question(None, "Glint", "Windows is using the Print Screen key to open Snipping Tool.\n\n"
                                  "Let Glint use Print Screen instead?")
         if r == QMessageBox.Yes:
@@ -638,11 +657,13 @@ def main():
     cmd = "capture" if "--capture" in args else ("background" if "--background" in args else "show")
 
     # Own taskbar identity, so Windows shows Glint's icon instead of Python's.
-    try:
-        import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Glint.ScreenCapture")
-    except Exception:
-        pass
+    # (The Store package already has one from its manifest; overriding it would break the taskbar icon.)
+    if not winapi.is_packaged():
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Glint.ScreenCapture")
+        except Exception:
+            pass
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     qapp = QApplication(sys.argv)
     qapp.setApplicationName("Glint")
