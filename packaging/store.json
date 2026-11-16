@@ -1,7 +1,8 @@
 {
-  "_comment": "Copy these three values from Partner Center > your app > Product identity once the name is reserved.",
-  "name": "Glint.Placeholder",
-  "publisher": "CN=Glint-Placeholder",
-  "publisher_display_name": "Glint",
+  "_comment": "From Partner Center > Glint Capture > Product identity. Store ID 9P1DLSLJR220, https://apps.microsoft.com/detail/9P1DLSLJR220",
+  "name": "dunit.io.GlintCapture",
+  "publisher": "CN=6268F155-41CE-4ED8-883F-0DBC77376EAF",
+  "publisher_display_name": "dunit.io",
+  "display_name": "Glint Capture",
   "version": "1.0.0.0"
 }

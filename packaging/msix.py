@@ -81,7 +81,7 @@ MANIFEST = """<?xml version="1.0" encoding="utf-8"?>
   IgnorableNamespaces="uap uap10 desktop rescap">
   <Identity Name="{name}" Publisher="{publisher}" Version="{version}" ProcessorArchitecture="x64"/>
   <Properties>
-    <DisplayName>Glint</DisplayName>
+    <DisplayName>{display_name}</DisplayName>
     <PublisherDisplayName>{publisher_display_name}</PublisherDisplayName>
     <Logo>Assets\\StoreLogo.png</Logo>
   </Properties>
@@ -94,7 +94,7 @@ MANIFEST = """<?xml version="1.0" encoding="utf-8"?>
   <Applications>
     <Application Id="Glint" Executable="runtime\\pythonw.exe" uap10:Parameters="-m snip"
                  EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="Glint" Description="Offline screen capture for Windows"
+      <uap:VisualElements DisplayName="{display_name}" Description="Offline screen capture for Windows"
                           BackgroundColor="transparent"
                           Square150x150Logo="Assets\\Square150x150Logo.png" Square44x44Logo="Assets\\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\\Wide310x150Logo.png" Square71x71Logo="Assets\\SmallTile.png"
@@ -103,7 +103,7 @@ MANIFEST = """<?xml version="1.0" encoding="utf-8"?>
       <Extensions>
         <desktop:Extension Category="windows.startupTask" Executable="runtime\\pythonw.exe"
                            uap10:Parameters="-m snip --background" EntryPoint="Windows.FullTrustApplication">
-          <desktop:StartupTask TaskId="{startup}" Enabled="true" DisplayName="Glint"/>
+          <desktop:StartupTask TaskId="{startup}" Enabled="true" DisplayName="{display_name}"/>
         </desktop:Extension>
       </Extensions>
     </Application>
@@ -132,7 +132,7 @@ def main():
     draw_assets(STAGE / "Assets")
     (STAGE / "AppxManifest.xml").write_text(
         MANIFEST.format(startup=STARTUP_TASK, **{k: ident[k] for k in
-                        ("name", "publisher", "publisher_display_name", "version")}), encoding="utf-8")
+                        ("name", "publisher", "publisher_display_name", "display_name", "version")}), encoding="utf-8")
 
     cfg = ROOT / "build" / "priconfig.xml"
     subprocess.check_call([makepri, "createconfig", "/cf", str(cfg), "/dq", "en-US", "/pv", "10.0.0", "/o"],
