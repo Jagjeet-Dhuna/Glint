@@ -14,14 +14,14 @@ PALETTES = {
     # "ink": warm near-blacks, like a well-used workbench at night
     "dark": dict(
         BG="#171614", SURFACE="#1e1c19", CANVAS="#0f0e0d", LINE="#2c2a26", HOVER="#23211e", ACTIVE="#2e2b27",
-        TEXT="#ebe5da", MUTED="#978e81", DIM="#6c655b", STRONG="#fbf6ec",
+        TEXT="#ebe5da", MUTED="#a39a8c", DIM="#928a7e", STRONG="#fbf6ec",
         SIDEBAR="#131211", SIDEBAR_LINE="#24221f", NAV="#b9b1a4", NAV_HOVER="#1c1a17", GROUP="#ebe5da",
         CARD="#1c1a17", CARD_LINE="#2a2824", CARD_HOVER="#211f1b", WELL="#26231f", TIP="#1a1816", TIP_LINE="#2a2824",
         KBD="transparent", KBD_LINE="#3a362f", KBD_TEXT="#cfc7ba",
         TILE_HOVER="#1d1b18", THUMB="#211f1b", THUMB_EDGE="rgba(255,240,220,16)",
         EMPTY="transparent", EMPTY_LINE="#34302a",
         FLOAT="rgba(30,28,25,245)", FLOAT_LINE="#3a362f",
-        CHECK_LINE="#3d3932", SCROLL="#38342e", SCROLL_HOVER="#4b463d",
+        CHECK_LINE="#6e675a", SCROLL="#38342e", SCROLL_HOVER="#4b463d",
         GROOVE="#36322c", HANDLE="#f2ece1", HANDLE_LINE="#f2ece1",
         PILL="#1e1c19", PILL_LINE="#34302a", PILL_DIV="#34302a", PILL_TEXT="#f2ece1", PILL_HOVER="#2a2723",
         CHIP="#211f1b", CHIP_LINE="#34302a", CHIP_TEXT="#c4bcaf", CHIP_HOVER="#2a2723",
@@ -32,14 +32,14 @@ PALETTES = {
     # "paper": warm off-whites and ink-black text
     "light": dict(
         BG="#f3efe7", SURFACE="#fbf9f4", CANVAS="#e5dfd3", LINE="#dcd5c7", HOVER="#e9e4da", ACTIVE="#e0d9cc",
-        TEXT="#1f1c17", MUTED="#6d6558", DIM="#9a9184", STRONG="#110f0c",
+        TEXT="#1f1c17", MUTED="#5c554a", DIM="#6d6559", STRONG="#110f0c",
         SIDEBAR="#ebe6dc", SIDEBAR_LINE="#ddd6c8", NAV="#4a443b", NAV_HOVER="#e3ddd1", GROUP="#1f1c17",
         CARD="#fbf9f4", CARD_LINE="#e0d9cb", CARD_HOVER="#fffdf8", WELL="#ece6db", TIP="#fbf9f4", TIP_LINE="#e0d9cb",
         KBD="transparent", KBD_LINE="#cfc7b8", KBD_TEXT="#3d372f",
         TILE_HOVER="#ebe6dc", THUMB="#e2dccf", THUMB_EDGE="rgba(40,30,10,26)",
         EMPTY="transparent", EMPTY_LINE="#cfc7b8",
         FLOAT="rgba(251,249,244,246)", FLOAT_LINE="#d6cfc1",
-        CHECK_LINE="#c2b9aa", SCROLL="#cbc3b5", SCROLL_HOVER="#b3aa9b",
+        CHECK_LINE="#8f8679", SCROLL="#cbc3b5", SCROLL_HOVER="#b3aa9b",
         GROOVE="#d3cbbd", HANDLE="#fbf9f4", HANDLE_LINE="#b3aa9b",
         PILL="#fbf9f4", PILL_LINE="#dcd5c7", PILL_DIV="#e2dccf", PILL_TEXT="#1f1c17", PILL_HOVER="#efeae0",
         CHIP="#fbf9f4", CHIP_LINE="#dcd5c7", CHIP_TEXT="#3d372f", CHIP_HOVER="#efeae0",
@@ -169,7 +169,43 @@ def on_accent(c):
     lin = [((v / 255) / 12.92 if v / 255 <= 0.04045 else (((v / 255) + 0.055) / 1.055) ** 2.4)
            for v in (q.red(), q.green(), q.blue())]
     lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
-    return "#111111" if lum > 0.42 else "#ffffff"
+    # whichever of near-black / white reads better (WCAG contrast), not a fixed brightness cut-off
+    return "#111111" if (lum + 0.05) / (0.0056 + 0.05) >= 1.05 / (lum + 0.05) else "#ffffff"
+
+
+def luminance(c):
+    q = QColor(c)
+    f = lambda v: (v / 255) / 12.92 if v / 255 <= 0.03928 else (((v / 255) + 0.055) / 1.055) ** 2.4
+    return 0.2126 * f(q.red()) + 0.7152 * f(q.green()) + 0.0722 * f(q.blue())
+
+
+def contrast(a, b):
+    la, lb = sorted((luminance(a), luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def readable(c, bg=None, need=4.5):
+    """c nudged lighter (on dark backgrounds) or darker (on light ones) until it reaches `need`:1 against bg.
+    4.5 for text, 3 for outlines/icons (WCAG AA)."""
+    bg = bg or BG
+    q = QColor(c)
+    up = luminance(bg) < 0.18
+    for _ in range(120):
+        if contrast(q.name(), bg) >= need:
+            break
+        h, s, l, a = q.getHsl()
+        q.setHsl(max(h, 0), s, min(255, l + 2) if up else max(0, l - 2), a)
+    return q.name()
+
+
+def accent_stroke():
+    """Accent for outlines (selection, focus ring) that stays visible on the current background."""
+    return readable(ACCENT, BG, 3)
+
+
+def accent_text():
+    return readable(QColor(ACCENT).lighter(118).name() if MODE == "dark" else QColor(ACCENT).darker(130).name(),
+                    BG, 4.5)
 
 
 def system_is_dark():
@@ -614,8 +650,8 @@ def stylesheet(accent=None):
     A_PRESS = QColor(A).darker(112).name()
     A_SOFT = rgba(A, 0.16)
     A_FAINT = rgba(A, 0.09)
-    A_LINE = rgba(A, 0.6)
-    A_BRIGHT = QColor(A).lighter(118).name() if MODE == "dark" else QColor(A).darker(130).name()
+    A_LINE = readable(A, BG, 3)          # focus borders: 3:1 against the window (WCAG 1.4.11)
+    A_BRIGHT = readable(QColor(A).lighter(118).name() if MODE == "dark" else QColor(A).darker(130).name(), BG, 4.5)
     F, M = UI_FONT, MONO_FONT
     return f"""
 * {{ font-family: "{F}", "Segoe UI"; font-size: 9.5pt; color: {TEXT}; }}
@@ -624,6 +660,7 @@ QWidget#page, QWidget#bar {{ background: {BG}; }}
 QWidget#bar {{ border-bottom: 1px solid {LINE}; }}
 QToolTip {{ background: {SURFACE}; color: {TEXT}; border: 1px solid {LINE}; padding: 5px 8px; border-radius: 4px; }}
 
+QPushButton, QToolButton, QCheckBox, QAbstractButton {{ outline: none; }}  /* a11y.FocusRing shows keyboard focus */
 QToolButton {{ background: transparent; border: none; border-radius: 5px; padding: 6px; }}
 QToolButton:hover {{ background: {HOVER}; }}
 QToolButton:pressed {{ background: {ACTIVE}; }}
@@ -705,10 +742,10 @@ QToolButton#capbtn {{ border: 1px solid {LINE}; border-radius: 5px; padding: 6px
 QToolButton#capbtn:hover {{ border-color: {A_LINE}; background: {A_FAINT}; }}
 QToolButton#capbtn[primary="true"] {{ background: {A}; border-color: {A}; color: {A_TEXT}; font-weight: 600; }}
 QToolButton#capbtn[primary="true"]:hover {{ background: {A_HOVER}; border-color: {A_HOVER}; }}
-QFrame#modetile {{ border: 1px solid {LINE}; border-radius: 6px; background: transparent; }}
-QFrame#modetile:hover {{ border-color: {A_LINE}; background: {A_FAINT}; }}
-QFrame#modetile[primary="true"] {{ border-color: {A}; background: {rgba(A, 0.10)}; }}
-QFrame#modetile QLabel {{ background: transparent; border: none; }}
+#modetile {{ border: 1px solid {LINE}; border-radius: 6px; background: transparent; }}
+#modetile:hover {{ border-color: {A_LINE}; background: {A_FAINT}; }}
+#modetile[primary="true"] {{ border-color: {A}; background: {rgba(A, 0.10)}; }}
+#modetile QLabel {{ background: transparent; border: none; }}
 QLabel#modename {{ font-weight: 600; }}
 QLabel#modenote {{ color: {MUTED}; font-family: "{M}"; font-size: 8pt; }}
 QLabel#legendname {{ color: {MUTED}; font-size: 8.5pt; background: transparent; }}

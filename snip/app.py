@@ -667,6 +667,8 @@ def main():
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     qapp = QApplication(sys.argv)
     qapp.setApplicationName("Glint")
+    from . import a11y
+    a11y.install(qapp)       # screen-reader names for icon buttons + keyboard focus ring
     if "--selftest" in args:   # packaging check: exercises the native parts, writes a report, exits
         return _selftest(args[args.index("--selftest") + 1] if len(args) > args.index("--selftest") + 1 else "")
     if "--install" in args or "--uninstall" in args:

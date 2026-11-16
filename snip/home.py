@@ -4,13 +4,14 @@ from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import QDate, QEvent, QMimeData, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QDate, QEvent, QMimeData, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (QColor, QDesktopServices, QDrag, QFontMetrics, QIcon, QImage, QKeySequence, QImageReader, QPainter, QPainterPath,
                            QPen, QPixmap)
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QButtonGroup, QCheckBox, QComboBox, QDateEdit, QDialog,
                                QFileDialog, QFrame, QGridLayout, QMessageBox,
                                QHBoxLayout, QLabel, QLayout, QLineEdit, QMainWindow, QMenu, QPushButton,
-                               QScrollArea, QSizePolicy, QStackedWidget, QToolButton, QVBoxLayout, QWidget)
+                               QScrollArea, QSizePolicy, QStackedWidget, QStyle, QStyleOption, QToolButton,
+                               QVBoxLayout, QWidget)
 
 from . import library, storage, theme, winapi
 
@@ -213,9 +214,9 @@ class CardGrid(QWidget):
         super().resizeEvent(e)
 
 
-class ModeTile(QFrame):
-    """One capture mode: coloured icon swatch, name, and a short mono note."""
-    clicked = Signal()
+class ModeTile(QAbstractButton):
+    """One capture mode: coloured icon swatch, name, and a short mono note. A real button, so it takes
+    keyboard focus, Space/Enter press it, and screen readers announce it as "Capture, button"."""
 
     def __init__(self, key, icon, name, note, primary=False, menu=None):
         super().__init__()
@@ -223,6 +224,12 @@ class ModeTile(QFrame):
         self.setObjectName("modetile")
         self.setProperty("primary", primary)
         self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setAttribute(Qt.WA_Hover)
+        self.setAccessibleName(name)
+        self.setAccessibleDescription(note)
+        if menu:
+            self.clicked.connect(lambda: self.menu.exec(self.mapToGlobal(QPoint(0, self.height() + 4))))
         self.setFixedHeight(50)
         self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         lay = QHBoxLayout(self)
@@ -253,12 +260,17 @@ class ModeTile(QFrame):
         self.name.setVisible(not on)
         self.note.setVisible(not on)
 
-    def mouseReleaseEvent(self, e):
-        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
-            if self.menu:
-                self.menu.exec(self.mapToGlobal(QPoint(0, self.height() + 4)))
-            else:
-                self.clicked.emit()
+    def paintEvent(self, e):
+        opt = QStyleOption()
+        opt.initFrom(self)
+        p = QPainter(self)
+        self.style().drawPrimitive(QStyle.PE_Widget, opt, p, self)   # border/background from the stylesheet
+
+    def keyPressEvent(self, e):
+        if e.key() in (Qt.Key_Return, Qt.Key_Enter) and not e.isAutoRepeat():
+            self.animateClick()
+            return
+        super().keyPressEvent(e)
 
 
 class CaptureStrip(QWidget):
@@ -286,7 +298,7 @@ class CaptureStrip(QWidget):
         for i, (key, icon, name, note, fn, menu, primary) in enumerate(spec):
             t = ModeTile(key, icon, name, note, primary, menu)
             if fn:
-                t.clicked.connect(fn)
+                t.clicked.connect(lambda _=False, f=fn: f())
             grid.addWidget(t, 0, i)
             grid.setColumnStretch(i, 1)
             self.buttons[key] = t
@@ -382,6 +394,7 @@ class Tile(QFrame):
         self.setObjectName("tile")
         self.setProperty("selected", False)
         self.setProperty("kbd", False)
+        self.setProperty("own_focus_style", True)   # tiles show keyboard focus themselves (tile[kbd])
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFixedSize(TW + 16, TH + 60)
         self.pm = None
@@ -447,7 +460,7 @@ class Tile(QFrame):
             p.fillRect(QRectF(0, 0, TW, TH), QColor(255, 255, 255, 18) if theme.is_dark() else QColor(255, 255, 255, 50))
         p.setClipping(False)
         if sel:
-            p.setPen(QPen(QColor(theme.ACCENT), 2))
+            p.setPen(QPen(QColor(theme.accent_stroke()), 2))
             p.setBrush(Qt.NoBrush)
             p.drawRoundedRect(QRectF(1, 1, TW - 2, TH - 2), 4, 4)
         else:
@@ -1303,6 +1316,9 @@ class SettingsPage(QWidget):
             tv.addWidget(dl)
             rl.addLayout(tv, 1)
             rl.addWidget(w, 0, Qt.AlignVCenter)
+            if not w.accessibleName():        # screen readers announce the row title for its control
+                w.setAccessibleName(t)
+                w.setAccessibleDescription(d)
             cv.addWidget(row)
         v.addWidget(card)
         return wrap
@@ -1365,11 +1381,58 @@ class SettingsPage(QWidget):
 
 
 # ---------------------------------------------------------------- window
+class NavGroup(QObject):
+    """One sidebar item selected at a time. Deliberately not a QButtonGroup: Qt gives buttons in any button
+    group radio-button keyboard rules (only the checked one keeps Tab focus), which hid Folders, Tags, Apps and
+    Settings from keyboard users. Here every item is its own Tab stop."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._buttons = []
+
+    def buttons(self):
+        return list(self._buttons)
+
+    def addButton(self, b):
+        if b in self._buttons:
+            return
+        self._buttons.append(b)
+        b.toggled.connect(self._toggled)
+        b.clicked.connect(self._clicked)
+        b.destroyed.connect(lambda *_, b=b: self._forget(b))
+
+    def removeButton(self, b):
+        if b in self._buttons:
+            self._buttons.remove(b)
+            for sig, slot in ((b.toggled, self._toggled), (b.clicked, self._clicked)):
+                try:
+                    sig.disconnect(slot)
+                except (RuntimeError, TypeError):
+                    pass
+
+    def _forget(self, b):
+        if b in self._buttons:
+            self._buttons.remove(b)
+
+    def _clicked(self):
+        b = self.sender()
+        if isinstance(b, QAbstractButton):
+            b.setChecked(True)                 # clicking the current item keeps it on
+
+    def _toggled(self, on):
+        b = self.sender()
+        if on:
+            for o in self._buttons:
+                if o is not b and o.isChecked():
+                    o.setChecked(False)
+
+
 class NavButton(QPushButton):
     def __init__(self, icon_name, text):
         super().__init__(text)
         self.setObjectName("nav")
         self.setCheckable(True)
+        self.setFocusPolicy(Qt.StrongFocus)   # Qt's style default can drop Tab focus for buttons made later
         self.setIcon(theme.icon(icon_name, 16))
         self.setIconSize(QSize(16, 16))
         self.setCursor(Qt.PointingHandCursor)
@@ -1785,8 +1848,7 @@ class HomeWindow(QMainWindow):
         sv.addLayout(brand)
         sv.addSpacing(18)
 
-        self.nav_group = QButtonGroup(self)
-        self.nav_group.setExclusive(True)
+        self.nav_group = NavGroup(self)
         self.nav_home = self._nav(sv, "grid", "Captures", ("all", None))
         self.nav_dupes = NavButton("copy", "Duplicates")
         self.nav_dupes.setCheckable(False)
@@ -1799,6 +1861,7 @@ class HomeWindow(QMainWindow):
         mid_scroll.setWidgetResizable(True)
         mid_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         mid_scroll.setObjectName("sidebarscroll")
+        mid_scroll.setFocusPolicy(Qt.NoFocus)        # its buttons take focus; the scroller itself needn't
         mid = QWidget()
         mid.setObjectName("sidebar_mid")
         mid.setAttribute(Qt.WA_StyledBackground, True)
@@ -2048,6 +2111,34 @@ class HomeWindow(QMainWindow):
         if getattr(self, "_collapsed", False):        # new buttons made while folded: fold them too
             for b in self.app_navs + self.folder_navs + self.tag_navs:
                 b.set_compact(True)
+        self._order_sidebar_tabs()
+
+    def _order_sidebar_tabs(self):
+        """Tab goes down the sidebar in the order you see it, then on to the capture tiles. Buttons rebuilt on
+        refresh (folders, tags, apps) otherwise never joined Qt's Tab chain, so keyboard users couldn't reach them."""
+        side = self.findChild(QWidget, "sidebar")
+        if side is None:
+            return
+        def walk(w):                                  # widgets in layout order (top to bottom, left to right)
+            lay = w.widget().layout() if isinstance(w, QScrollArea) and w.widget() else w.layout()
+            if isinstance(w, QAbstractButton):
+                yield w
+            if lay is not None:
+                yield from walk_layout(lay)
+
+        def walk_layout(lay):
+            for i in range(lay.count()):
+                it = lay.itemAt(i)
+                if it.widget() is not None:
+                    yield from walk(it.widget())
+                elif it.layout() is not None:
+                    yield from walk_layout(it.layout())
+
+        btns = [b for b in walk(side) if b.focusPolicy() != Qt.NoFocus]
+        tiles = list(self.library.cards_box.buttons.values()) if hasattr(self.library, "cards_box") else []
+        chain = btns + tiles[:1]
+        for a, b in zip(chain, chain[1:]):
+            QWidget.setTabOrder(a, b)
 
     def keyPressEvent(self, e):
         lib = self.library

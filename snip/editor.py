@@ -142,6 +142,8 @@ class Canvas(QWidget):
         self.dirty = False
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
+        self.setProperty("own_focus_style", True)
+        self.setAccessibleName("Capture canvas")
         self.update_size()
 
     # ---------------------------------------------------------------- history
