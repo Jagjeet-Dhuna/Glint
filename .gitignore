@@ -1,0 +1,8 @@
+# build outputs (recreate with: python packaging/build.py)
+dist/
+build/
+# Python caches
+__pycache__/
+*.pyc
+# test screenshots / scratch files
+tests/_out/
