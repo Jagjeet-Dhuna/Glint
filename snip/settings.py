@@ -10,7 +10,7 @@ SETTINGS_FILE = APP_DIR / "settings.json"
 
 def _default_folder():
     pics = QStandardPaths.writableLocation(QStandardPaths.PicturesLocation) or str(Path.home() / "Pictures")
-    return str(Path(pics) / "Snips")
+    return str(Path(pics) / "Glint")
 
 
 DEFAULTS = {
