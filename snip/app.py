@@ -108,9 +108,12 @@ class SnipApp(QObject):
         except Exception:
             pass
 
-    def register_hotkeys(self, show_errors=False):
+    def unregister_hotkeys(self):
         for hid in HK_ALL:
             winapi.unregister_hotkey(hid)
+
+    def register_hotkeys(self, show_errors=False):
+        self.unregister_hotkeys()
         failed = []
         s = self.settings
         for hid, name in ((HK_PRIMARY, s.hotkey_primary), (HK_SECONDARY, s.hotkey_secondary),

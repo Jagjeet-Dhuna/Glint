@@ -11,7 +11,8 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "_out")
 TESTS = ["home_select", "home_sort", "home_cards", "library_tags_combine", "editor_codebar", "editor_stamps",
-         "editor_tools", "capture_mixed_dpi", "capture_features", "scroll_sim", "scroll_cases", "accessibility"]
+         "editor_tools", "capture_mixed_dpi", "capture_features", "scroll_sim", "scroll_cases", "accessibility",
+         "settings_hotkeys"]
 
 
 def main():

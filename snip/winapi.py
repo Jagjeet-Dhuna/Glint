@@ -84,21 +84,73 @@ DWMWA_USE_IMMERSIVE_DARK_MODE = 20
 DWMWA_WINDOW_CORNER_PREFERENCE = 33
 DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR = 35, 36
 
-HOTKEYS = {
-    "Print Screen": (0, 0x2C),
-    "Ctrl+Print Screen": (MOD_CONTROL, 0x2C),
-    "Shift+Print Screen": (MOD_SHIFT, 0x2C),
-    "Ctrl+Shift+X": (MOD_CONTROL | MOD_SHIFT, ord("X")),
-    "Ctrl+Alt+S": (MOD_CONTROL | MOD_ALT, ord("S")),
-    "Alt+Shift+S": (MOD_ALT | MOD_SHIFT, ord("S")),
-    "Ctrl+Shift+2": (MOD_CONTROL | MOD_SHIFT, ord("2")),
-    "None": None,
-}
-
-
 # ---------------------------------------------------------------- hotkeys
+# A hotkey is stored as text, e.g. "Ctrl+Alt+=": modifiers in this order, then one key name. "None" = unset.
+MODIFIERS = (("Ctrl", MOD_CONTROL), ("Alt", MOD_ALT), ("Shift", MOD_SHIFT), ("Win", MOD_WIN))
+
+# key name -> virtual-key code. Punctuation names are the US-layout characters on those keys.
+KEY_VKS = {
+    "Print Screen": 0x2C, "Pause": 0x13, "Scroll Lock": 0x91, "Insert": 0x2D, "Delete": 0x2E,
+    "Home": 0x24, "End": 0x23, "Page Up": 0x21, "Page Down": 0x22,
+    "Left": 0x25, "Up": 0x26, "Right": 0x27, "Down": 0x28,
+    "Space": 0x20, "Tab": 0x09, "Enter": 0x0D, "Backspace": 0x08, "Esc": 0x1B,
+    ";": 0xBA, "=": 0xBB, ",": 0xBC, "-": 0xBD, ".": 0xBE, "/": 0xBF, "`": 0xC0,
+    "[": 0xDB, "\\": 0xDC, "]": 0xDD, "'": 0xDE,
+    "Num Multiply": 0x6A, "Num Plus": 0x6B, "Num Minus": 0x6D, "Num Dot": 0x6E, "Num Divide": 0x6F,
+}
+KEY_VKS.update({chr(c): c for c in range(ord("A"), ord("Z") + 1)})
+KEY_VKS.update({chr(c): c for c in range(ord("0"), ord("9") + 1)})
+KEY_VKS.update({f"Num {i}": 0x60 + i for i in range(10)})
+KEY_VKS.update({f"F{i}": 0x6F + i for i in range(1, 25)})
+VK_NAMES = {vk: name for name, vk in KEY_VKS.items()}
+_KEYS_LOWER = {name.lower(): name for name in KEY_VKS}
+_MODS_LOWER = {"ctrl": MOD_CONTROL, "control": MOD_CONTROL, "alt": MOD_ALT, "shift": MOD_SHIFT,
+               "win": MOD_WIN, "windows": MOD_WIN, "meta": MOD_WIN}
+# keys that make sense as a hotkey on their own, without typing anything
+SOLO_KEYS = {"Print Screen", "Pause", "Scroll Lock", "Insert"} | {f"F{i}" for i in range(1, 25)}
+# pressing only these while recording means "still choosing"
+MODIFIER_VKS = {0x10, 0x11, 0x12, 0x5B, 0x5C, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5}
+
+
+def parse_hotkey(name):
+    """'Ctrl+Alt+=' -> (MOD_CONTROL | MOD_ALT, 0xBB). None for 'None', empty or unreadable text."""
+    if not name or name == "None":
+        return None
+    *mod_parts, key = [p.strip() for p in name.split("+")]
+    key = _KEYS_LOWER.get(key.lower())
+    if key is None:
+        return None
+    mods = 0
+    for p in mod_parts:
+        m = _MODS_LOWER.get(p.lower())
+        if m is None:
+            return None
+        mods |= m
+    return mods, KEY_VKS[key]
+
+
+def hotkey_name(mods, vk):
+    """(MOD_CONTROL | MOD_ALT, 0xBB) -> 'Ctrl+Alt+='. None if the key has no name here."""
+    key = VK_NAMES.get(vk)
+    if key is None:
+        return None
+    return "+".join([label for label, m in MODIFIERS if mods & m] + [key])
+
+
+def hotkey_problem(name):
+    """Why this hotkey can't be used, or None if it's fine."""
+    spec = parse_hotkey(name)
+    if spec is None:
+        return "That key can't be used as a shortcut."
+    mods, vk = spec
+    key = VK_NAMES[vk]
+    if key not in SOLO_KEYS and not mods & (MOD_CONTROL | MOD_ALT | MOD_WIN):
+        return "Add Ctrl, Alt or Win, or that key would stop typing everywhere."
+    return None
+
+
 def register_hotkey(hotkey_id, name):
-    spec = HOTKEYS.get(name)
+    spec = parse_hotkey(name)
     if not spec:
         return True
     mods, vk = spec
