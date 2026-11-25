@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QAbstractButton, QApplication, QButtonGroup, QChe
                                QFileDialog, QFrame, QGridLayout, QMessageBox,
                                QHBoxLayout, QLabel, QLayout, QLineEdit, QMainWindow, QMenu, QPushButton,
                                QScrollArea, QSizePolicy, QStackedWidget, QStyle, QStyleOption, QToolButton,
-                               QVBoxLayout, QWidget)
+                               QToolTip, QVBoxLayout, QWidget)
 
 from . import library, storage, theme, winapi
 
@@ -150,6 +150,152 @@ class Toggle(QAbstractButton):
         p.setBrush(QColor(theme.on_accent(theme.ACCENT)) if on else QColor(theme.TOG_KNOB))
         cx = 27 if on else 11
         p.drawEllipse(QRectF(cx - 7, 4, 14, 14))
+
+
+# Qt key -> Windows virtual key, for when Qt gives no native key code (off-screen tests)
+_QT_VKS = {Qt.Key_Print: 0x2C, Qt.Key_Pause: 0x13, Qt.Key_ScrollLock: 0x91, Qt.Key_Insert: 0x2D,
+           Qt.Key_Delete: 0x2E, Qt.Key_Home: 0x24, Qt.Key_End: 0x23, Qt.Key_PageUp: 0x21,
+           Qt.Key_PageDown: 0x22, Qt.Key_Left: 0x25, Qt.Key_Up: 0x26, Qt.Key_Right: 0x27, Qt.Key_Down: 0x28,
+           Qt.Key_Space: 0x20, Qt.Key_Tab: 0x09, Qt.Key_Return: 0x0D, Qt.Key_Enter: 0x0D,
+           Qt.Key_Backspace: 0x08, Qt.Key_Escape: 0x1B, Qt.Key_Control: 0x11, Qt.Key_Alt: 0x12,
+           Qt.Key_Shift: 0x10, Qt.Key_Meta: 0x5B}
+
+
+_VK_MODS = {0x10: winapi.MOD_SHIFT, 0xA0: winapi.MOD_SHIFT, 0xA1: winapi.MOD_SHIFT,
+            0x11: winapi.MOD_CONTROL, 0xA2: winapi.MOD_CONTROL, 0xA3: winapi.MOD_CONTROL,
+            0x12: winapi.MOD_ALT, 0xA4: winapi.MOD_ALT, 0xA5: winapi.MOD_ALT, 0x5B: winapi.MOD_WIN, 0x5C: winapi.MOD_WIN}
+
+
+def event_vk(e):
+    vk = e.nativeVirtualKey()
+    if vk:
+        return vk
+    k = e.key()
+    if k in _QT_VKS:
+        return _QT_VKS[k]
+    if Qt.Key_F1 <= k <= Qt.Key_F24:
+        return 0x70 + (k - Qt.Key_F1)
+    if 0x20 < k < 0x7F:
+        return winapi.KEY_VKS.get(chr(k).upper(), 0)
+    return 0
+
+
+def event_mods(e):
+    m, q = 0, e.modifiers()
+    if q & Qt.ControlModifier:
+        m |= winapi.MOD_CONTROL
+    if q & Qt.AltModifier:
+        m |= winapi.MOD_ALT
+    if q & Qt.ShiftModifier:
+        m |= winapi.MOD_SHIFT
+    if q & Qt.MetaModifier:
+        m |= winapi.MOD_WIN
+    return m
+
+
+class HotkeyEdit(QPushButton):
+    """Click, then press the shortcut you want (e.g. Ctrl+Alt+=). Esc cancels, Backspace clears.
+
+    Global hotkeys are released while recording (suspend / resume), or pressing an existing one would start
+    a capture instead of reaching this box."""
+    changed = Signal(str)
+    IDLE_TIP = "Click, then press a key combination. Backspace clears it."
+
+    def __init__(self, hotkey, suspend=None, resume=None):
+        super().__init__()
+        self._hotkey = hotkey or "None"
+        self._suspend, self._resume = suspend, resume
+        self.recording = False
+        self.setMinimumWidth(170)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(self.IDLE_TIP)
+        self.clicked.connect(self.start)
+        self._show()
+
+    def hotkey(self):
+        return self._hotkey
+
+    def set_hotkey(self, name):
+        self._hotkey = name or "None"
+        if not self.recording:
+            self._show()
+
+    def _show(self, text=None):
+        self.setText(text or (self._hotkey if self._hotkey != "None" else "Not set"))
+
+    def start(self):
+        if self.recording:
+            return
+        self.recording = True
+        if self._suspend:
+            self._suspend()
+        self.setText("Press keys…")
+        self.setToolTip("Press the shortcut. Esc cancels, Backspace clears.")
+        self.grabKeyboard()
+
+    def _finish(self, name=None):
+        """Stop recording; a name (including "None") replaces the hotkey and fires changed."""
+        if not self.recording:
+            return
+        self.recording = False
+        self.releaseKeyboard()
+        self.setToolTip(self.IDLE_TIP)
+        if name is not None:
+            self._hotkey = name
+        self._show()
+        if name is not None:
+            self.changed.emit(name)  # the receiver registers the new set of hotkeys
+        elif self._resume:
+            self._resume()
+
+    def event(self, e):
+        # while recording, Tab and shortcuts are keys to record, not focus moves or actions
+        if self.recording and e.type() == QEvent.ShortcutOverride:
+            e.accept()
+            return True
+        if self.recording and e.type() == QEvent.KeyPress:
+            self.keyPressEvent(e)
+            return True
+        return super().event(e)
+
+    def keyPressEvent(self, e):
+        if not self.recording:
+            return super().keyPressEvent(e)
+        e.accept()
+        if e.isAutoRepeat():
+            return
+        vk, mods = event_vk(e), event_mods(e)
+        if vk in winapi.MODIFIER_VKS:  # still choosing: show what's held so far, including this key
+            mods |= _VK_MODS.get(vk, 0)
+            held = [label for label, m in winapi.MODIFIERS if mods & m]
+            self.setText("+".join(held + ["…"]))
+            return
+        if not mods and vk == 0x1B:
+            return self._finish()
+        if not mods and vk in (0x08, 0x2E):
+            return self._finish("None")
+        self._take(mods, vk)
+
+    def keyReleaseEvent(self, e):
+        # Windows only sends a key-up for Print Screen
+        if self.recording and event_vk(e) == 0x2C:
+            e.accept()
+            return self._take(event_mods(e), 0x2C)
+        super().keyReleaseEvent(e)
+
+    def _take(self, mods, vk):
+        name = winapi.hotkey_name(mods, vk)
+        problem = winapi.hotkey_problem(name) if name else "That key can't be used as a shortcut."
+        if problem:
+            self.setText("Try another")
+            self.setToolTip(problem)
+            QToolTip.showText(self.mapToGlobal(QPoint(0, self.height())), problem, self)
+            return
+        self._finish(name)
+
+    def focusOutEvent(self, e):
+        self._finish()
+        super().focusOutEvent(e)
 
 
 # ---------------------------------------------------------------- pieces
@@ -1180,11 +1326,7 @@ class SettingsPage(QWidget):
         self.hide_icons = Toggle(s.hide_desktop_icons)
         self.hk = []
         for cur in (s.hotkey_primary, s.hotkey_secondary, s.hotkey_instant, s.hotkey_repeat):
-            cb = QComboBox()
-            cb.addItems(list(winapi.HOTKEYS.keys()))
-            cb.setCurrentText(cur)
-            cb.setMinimumWidth(170)
-            self.hk.append(cb)
+            self.hk.append(HotkeyEdit(cur, suspend=self._suspend_hotkeys, resume=self._resume_hotkeys))
         self.startup = Toggle(s.start_with_windows)
         self.appearance = QWidget()
         apl = QHBoxLayout(self.appearance)
@@ -1272,8 +1414,8 @@ class SettingsPage(QWidget):
         self.hide_icons.toggled.connect(self._apply)
         for w in (self.copy, self.save, self.startup, self.redact):
             w.toggled.connect(self._apply)
-        for cb in self.hk:
-            cb.currentIndexChanged.connect(self._apply_hotkeys)
+        for he in self.hk:
+            he.changed.connect(self._apply_hotkeys)
 
     @staticmethod
     def _short(path):
@@ -1358,17 +1500,21 @@ class SettingsPage(QWidget):
         if hasattr(self.app, "theme_changed"):
             self.app.theme_changed()
 
+    def _suspend_hotkeys(self):
+        self.app.unregister_hotkeys()
+
+    def _resume_hotkeys(self):
+        self.app.register_hotkeys()
+
     def _apply_hotkeys(self):
         # one key can only do one thing: if the key just picked is already used by another row, that row
         # gives it up (set to None) - otherwise Windows silently refuses the second registration
         changed = self.sender()
-        if changed in self.hk and changed.currentText() != "None":
-            for cb in self.hk:
-                if cb is not changed and cb.currentText() == changed.currentText():
-                    cb.blockSignals(True)
-                    cb.setCurrentText("None")
-                    cb.blockSignals(False)
-        hk = [cb.currentText() for cb in self.hk]
+        if changed in self.hk and changed.hotkey() != "None":
+            for he in self.hk:
+                if he is not changed and he.hotkey() == changed.hotkey():
+                    he.set_hotkey("None")
+        hk = [he.hotkey() for he in self.hk]
         self.app.settings.set(hotkey_primary=hk[0], hotkey_secondary=hk[1], hotkey_instant=hk[2],
                               hotkey_repeat=hk[3])
         if "Print Screen" in hk and winapi.printscreen_owned_by_windows():
